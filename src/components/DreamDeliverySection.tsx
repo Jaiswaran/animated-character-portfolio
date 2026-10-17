@@ -15,11 +15,13 @@ const WAYPOINT_PROGRESS = [0, 0.52, 1.0];
 interface DreamDeliverySectionProps {
   dispatchTrigger?: number;
   onStatusChange?: (status: DeliveryStatus) => void;
+  compact?: boolean;
 }
 
 export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   dispatchTrigger,
   onStatusChange,
+  compact = false,
 }) => {
   const { play } = useSoundEffects();
   const pathRef = useRef<SVGPathElement | null>(null);
@@ -120,23 +122,24 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 
   return (
     <section
-      id="map"
-      className="py-16 md:py-20 relative"
+      id={compact ? undefined : "map"}
+      className={compact ? "ultimate-route-embed relative" : "py-16 md:py-20 relative"}
       aria-label="Dream Delivery Route Map"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 md:mb-14">
-          <span className="font-bubbly text-xs tracking-widest uppercase text-rich-berry dark:text-star-gold bg-soft-blush dark:bg-plum px-3.5 py-1 rounded-full border border-rich-berry/20">
-            Real-Time Constellation Dispatch
-          </span>
-          <h2 className="font-serif-headline text-3xl sm:text-5xl font-bold text-plum dark:text-star-gold mt-3">
-            Dream Delivery Route Map
-          </h2>
-          <p className="font-bubbly text-warm-brown/80 dark:text-cream/70 text-sm sm:text-base mt-2">
-            Watch Pip journey across midnight rooftops and cloud spires to drop off sweet dreams.
-          </p>
-        </div>
+        {!compact && (
+          <div className="text-center max-w-2xl mx-auto mb-12 md:mb-14">
+            <span className="font-bubbly text-xs tracking-widest uppercase text-rich-berry dark:text-star-gold bg-soft-blush dark:bg-plum px-3.5 py-1 rounded-full border border-rich-berry/20">
+              Real-Time Constellation Dispatch
+            </span>
+            <h2 className="font-serif-headline text-3xl sm:text-5xl font-bold text-plum dark:text-star-gold mt-3">
+              Dream Delivery Route Map
+            </h2>
+            <p className="font-bubbly text-warm-brown/80 dark:text-cream/70 text-sm sm:text-base mt-2">
+              Watch Pip journey across midnight rooftops and cloud spires to drop off sweet dreams.
+            </p>
+          </div>
+        )}
 
         {/* SVG Map Container */}
         <div
