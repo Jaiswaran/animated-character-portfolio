@@ -12,7 +12,15 @@ import { useSoundEffects } from '../hooks/useSoundEffects';
 // Approximate normalized progress along the SVG path for the 3 destinations
 const WAYPOINT_PROGRESS = [0, 0.52, 1.0];
 
-export const DreamDeliverySection: React.FC = () => {
+interface DreamDeliverySectionProps {
+  dispatchTrigger?: number;
+  onStatusChange?: (status: DeliveryStatus) => void;
+}
+
+export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
+  dispatchTrigger,
+  onStatusChange,
+}) => {
   const { play } = useSoundEffects();
   const pathRef = useRef<SVGPathElement | null>(null);
   const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(1);
@@ -22,6 +30,17 @@ export const DreamDeliverySection: React.FC = () => {
     x: DELIVERY_WAYPOINTS[0].x,
     y: DELIVERY_WAYPOINTS[0].y,
   });
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [status, onStatusChange]);
+
+  useEffect(() => {
+    if (dispatchTrigger && dispatchTrigger > 0) {
+      const nextIndex = (selectedDestinationIndex + 1) % DELIVERY_WAYPOINTS.length;
+      startDelivery(nextIndex);
+    }
+  }, [dispatchTrigger]);
 
   const activeWaypoint = DELIVERY_WAYPOINTS[selectedDestinationIndex];
 
@@ -120,7 +139,10 @@ export const DreamDeliverySection: React.FC = () => {
         </div>
 
         {/* SVG Map Container */}
-        <div className="bg-plum dark:bg-plum-dark rounded-3xl p-5 sm:p-10 border-4 border-rich-berry/30 shadow-2xl relative text-cream overflow-hidden">
+        <div
+          data-project-card="true"
+          className="project-card bg-plum dark:bg-plum-dark rounded-3xl p-5 sm:p-10 border-4 border-rich-berry/30 shadow-2xl relative text-cream overflow-hidden transition-all duration-300"
+        >
           {/* Background Star Pattern */}
           <div
             className="absolute inset-0 opacity-20 pointer-events-none"

@@ -47,6 +47,7 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
 
   const navLinks = [
     { label: 'About Pip', href: '#about' },
+    { label: 'Showcase', href: '#projects' },
     { label: 'Lullaby Lab', href: '#lullaby' },
     { label: 'Nightlights', href: '#nightlight' },
     { label: 'Dream Delivery', href: '#map' },

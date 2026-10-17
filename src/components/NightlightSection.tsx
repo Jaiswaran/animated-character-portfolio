@@ -11,9 +11,18 @@ import { useSoundEffects } from '../hooks/useSoundEffects';
 const PIP_LANTERN_FALLBACK =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCn5BPwRSRzfkgVPKbx9s5hXocpGDPjMIZmHZY82gBnIP51tt9T5HLkzsY95sokvCOW8PfUQ7X2hFteJ8NfXX9tQ4vm-xjeUxzsGb3HDh1BfJTHsHTTCSJjRBF7VJ7-TD45hll0TbhKvD8AIwteT2endf9EjzoCvWohPEMzYEAwaJ57T-FLCMr1CibqBeBRUudEVl-fXWH4tgE9xKhGFBdRT8rjQrU3k-u_zKw60G3i6Ueo6iInCrer9qKW9JUn6sNVQA';
 
-export const NightlightSection: React.FC = () => {
+interface NightlightSectionProps {
+  activeGlow?: GlowMode;
+  onSelectGlow?: (glow: GlowMode) => void;
+}
+
+export const NightlightSection: React.FC<NightlightSectionProps> = ({
+  activeGlow: controlledGlow,
+  onSelectGlow,
+}) => {
   const { play } = useSoundEffects();
-  const [activeGlow, setActiveGlow] = useState<GlowMode>('amber');
+  const [internalGlow, setInternalGlow] = useState<GlowMode>('amber');
+  const activeGlow = controlledGlow ?? internalGlow;
   const [activeTimer, setActiveTimer] = useState<string>('15m');
   const [isNightAmbience, setIsNightAmbience] = useState(true);
 
@@ -21,7 +30,11 @@ export const NightlightSection: React.FC = () => {
 
   const handleGlowSelect = (glowId: GlowMode) => {
     play('nightlight-change');
-    setActiveGlow(glowId);
+    if (onSelectGlow) {
+      onSelectGlow(glowId);
+    } else {
+      setInternalGlow(glowId);
+    }
   };
 
   const handleTimerSelect = (timerId: string) => {
@@ -69,7 +82,8 @@ export const NightlightSection: React.FC = () => {
               />
 
               <div
-                className={`relative z-10 p-5 rounded-[40px] border-4 border-rich-berry/20 shadow-2xl w-full transition-colors duration-500 ${
+                data-project-card="true"
+                className={`project-card relative z-10 p-5 rounded-[40px] border-4 border-rich-berry/20 shadow-2xl w-full transition-colors duration-500 ${
                   isNightAmbience
                     ? 'bg-plum-night text-cream border-plum-card'
                     : 'bg-white text-warm-brown'
@@ -165,7 +179,10 @@ export const NightlightSection: React.FC = () => {
 
           {/* Glow Selector & Sleep Timer Interactive Deck */}
           <div className="lg:col-span-6 space-y-6">
-            <div className="bg-white dark:bg-plum rounded-3xl p-6 sm:p-8 border-2 border-rich-berry/20 shadow-md">
+            <div
+              data-project-card="true"
+              className="project-card bg-white dark:bg-plum rounded-3xl p-6 sm:p-8 border-2 border-rich-berry/20 shadow-md transition-all duration-300"
+            >
               <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-star-gold mb-2">
                 Dream Lantern Radiance Controller
               </h3>

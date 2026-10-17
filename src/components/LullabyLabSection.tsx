@@ -143,7 +143,10 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby })
         </div>
 
         {/* Interactive Lab Showcase Container */}
-        <div className="bg-white/80 dark:bg-plum rounded-3xl p-6 sm:p-10 border-2 border-rich-berry/20 shadow-xl relative overflow-hidden">
+        <div
+          data-project-card="true"
+          className="project-card bg-white/80 dark:bg-plum rounded-3xl p-6 sm:p-10 border-2 border-rich-berry/20 shadow-xl relative overflow-hidden transition-all duration-300"
+        >
           {/* Animated Musical Floating Notes in Background */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
             <span

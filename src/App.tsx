@@ -18,6 +18,8 @@ import { EasterEggModal } from './components/EasterEggModal';
 import { ChaosSparkles } from './components/ChaosSparkles';
 import { CustomCursor } from './components/CustomCursor';
 import { SoundEffectsProvider } from './context/SoundEffectsContext';
+import { ProjectShowcaseSection } from './components/ProjectShowcaseSection';
+import { GlowMode } from './utils/nightlight';
 import { useLullabyAudio } from './hooks/useLullabyAudio';
 
 const THEME_STORAGE_KEY = 'pip_observatory_theme';
@@ -47,6 +49,11 @@ function ObservatoryContent() {
 
   // Start muted by default as requested in Phase 2
   const lullaby = useLullabyAudio(true);
+
+  // Synchronized Project Showcase States
+  const [activeGlow, setActiveGlow] = useState<GlowMode>('amber');
+  const [dispatchTrigger, setDispatchTrigger] = useState<number>(0);
+  const [deliveryStatus, setDeliveryStatus] = useState<string>('idle');
 
   const [isChaosMode, setIsChaosMode] = useState(false);
   const [isEasterEggOpen, setIsEasterEggOpen] = useState(false);
@@ -85,6 +92,10 @@ function ObservatoryContent() {
     }
   }, [lullaby]);
 
+  const handleQuickDispatch = useCallback(() => {
+    setDispatchTrigger((prev) => prev + 1);
+  }, []);
+
   return (
     <div className="min-h-screen bg-cream text-warm-brown antialiased dark:bg-plum-dark dark:text-cream selection:bg-soft-blush selection:text-plum transition-colors duration-300">
       {/* Magical Celestial Custom Cursor */}
@@ -117,14 +128,29 @@ function ObservatoryContent() {
         {/* 2. About Pip (Nursery Staff Dossier) */}
         <AboutSection />
 
-        {/* 3. Project Showcase I: Lullaby Lab with Web Audio API Synthesizer */}
+        {/* 3. Celestial Projects Showcase Hub with imaginative interactive cards */}
+        <ProjectShowcaseSection
+          lullaby={lullaby}
+          activeGlow={activeGlow}
+          onSelectGlow={setActiveGlow}
+          onQuickDispatch={handleQuickDispatch}
+          deliveryStatus={deliveryStatus}
+        />
+
+        {/* 4. Project Showcase I: Lullaby Lab with Web Audio API Synthesizer */}
         <LullabyLabSection lullaby={lullaby} />
 
-        {/* 4. Project Showcase II: Nightlight Sanctuary with live glow and day/night preview */}
-        <NightlightSection />
+        {/* 5. Project Showcase II: Nightlight Sanctuary with live glow and day/night preview */}
+        <NightlightSection
+          activeGlow={activeGlow}
+          onSelectGlow={setActiveGlow}
+        />
 
-        {/* 5. Project Showcase III: Dream Delivery Route Map with animated SVG star flight */}
-        <DreamDeliverySection />
+        {/* 6. Project Showcase III: Dream Delivery Route Map with animated SVG star flight */}
+        <DreamDeliverySection
+          dispatchTrigger={dispatchTrigger}
+          onStatusChange={setDeliveryStatus}
+        />
 
         {/* 6. Origin Story with Viewport IntersectionObserver Reveal */}
         <OriginStorySection />

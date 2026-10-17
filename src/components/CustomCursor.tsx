@@ -22,7 +22,8 @@ interface CustomCursorProps {
 
 export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
   const [visible, setVisible] = useState(false);
-  const [isOverInput, setIsOverInput] = useState(false);
+  const [isInteractive, setIsInteractive] = useState(false);
+  const [isProjectCard, setIsProjectCard] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [isFinePointer, setIsFinePointer] = useState(false);
   const [sparkles, setSparkles] = useState<ClickSparkle[]>([]);
@@ -45,23 +46,25 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
       return;
     }
 
+    // Authoritative global cursor suppression class
     document.documentElement.classList.add('has-custom-cursor');
 
     const handleMouseMove = (e: MouseEvent) => {
       posRef.current = { x: e.clientX, y: e.clientY };
       if (!visible) setVisible(true);
 
-      // Check if hovering over text inputs or textareas
+      // Check if hovering over interactive elements or project cards
       const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        setIsOverInput(true);
-      } else {
-        setIsOverInput(false);
+      if (target) {
+        const interactiveMatch = target.closest(
+          'button, a, input, textarea, select, [role="button"], [role="link"], [role="tab"], label, summary, [onclick], .cursor-pointer'
+        );
+        setIsInteractive(Boolean(interactiveMatch));
+
+        const projectCardMatch = target.closest(
+          '[data-project-card], .project-card, [data-project-showcase]'
+        );
+        setIsProjectCard(Boolean(projectCardMatch));
       }
     };
 
@@ -69,27 +72,31 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
       setVisible(false);
     };
 
+    const handleMouseEnter = () => {
+      setVisible(true);
+    };
+
     const handleMouseDown = (e: MouseEvent) => {
       setIsClicking(true);
 
-      // Add 4-5 tiny short-lived sparkles on click
-      const colors = ['#f3cf75', '#d9c8ef', '#f1c9d6', '#ffffff'];
-      const newSparkles: ClickSparkle[] = Array.from({ length: 4 }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / 4 + Math.random() * 0.5;
-        const speed = Math.random() * 2 + 1.2;
+      // Add 4-5 tiny short-lived sparkles on click with gentle pastel & gold hues
+      const colors = ['#f3cf75', '#d9c8ef', '#f1c9d6', '#ffffff', '#ffd166'];
+      const newSparkles: ClickSparkle[] = Array.from({ length: 5 }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / 5 + (Math.random() - 0.5) * 0.4;
+        const speed = Math.random() * 2.2 + 1.2;
         return {
-          id: Date.now() + i,
+          id: Date.now() + Math.random(),
           x: e.clientX,
           y: e.clientY,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
-          size: Math.random() * 3 + 2,
+          size: Math.random() * 2.5 + 2,
           opacity: 1,
           color: colors[i % colors.length],
         };
       });
 
-      setSparkles((prev) => [...prev, ...newSparkles]);
+      setSparkles((prev) => [...prev.slice(-15), ...newSparkles]);
     };
 
     const handleMouseUp = () => {
@@ -97,30 +104,32 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseenter', handleMouseEnter);
     window.addEventListener('mouseleave', handleMouseLeave);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
 
-    // RAF loop for smooth 60fps cursor follow
+    // High performance RAF loop for smooth 60fps cursor follow without React re-renders
     const updateCursor = () => {
       if (cursorRef.current && posRef.current.x >= 0) {
-        // Stay within viewport
-        const clampedX = Math.max(0, Math.min(window.innerWidth - 8, posRef.current.x));
-        const clampedY = Math.max(0, Math.min(window.innerHeight - 8, posRef.current.y));
+        // Clamp to viewport bounds
+        const clampedX = Math.max(0, Math.min(window.innerWidth, posRef.current.x));
+        const clampedY = Math.max(0, Math.min(window.innerHeight, posRef.current.y));
         cursorRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`;
       }
 
-      // Decay sparkles
-      setSparkles((prev) =>
-        prev
+      // Decay sparkles smoothly
+      setSparkles((prev) => {
+        if (prev.length === 0) return prev;
+        return prev
           .map((s) => ({
             ...s,
             x: s.x + s.vx,
             y: s.y + s.vy,
-            opacity: s.opacity - 0.045,
+            opacity: s.opacity - 0.05,
           }))
-          .filter((s) => s.opacity > 0)
-      );
+          .filter((s) => s.opacity > 0);
+      });
 
       animFrameRef.current = requestAnimationFrame(updateCursor);
     };
@@ -130,6 +139,7 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
     return () => {
       document.documentElement.classList.remove('has-custom-cursor');
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseenter', handleMouseEnter);
       window.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
@@ -146,14 +156,14 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden select-none"
+      className="pointer-events-none fixed inset-0 z-[99999] overflow-hidden select-none"
       aria-hidden="true"
     >
-      {/* Click Sparkles */}
+      {/* Click Sparkles Burst */}
       {sparkles.map((sp) => (
         <div
           key={sp.id}
-          className="pointer-events-none fixed rounded-full transition-opacity"
+          className="pointer-events-none fixed rounded-full transition-opacity will-change-transform"
           style={{
             left: `${sp.x}px`,
             top: `${sp.y}px`,
@@ -167,29 +177,58 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
         />
       ))}
 
-      {/* Main Cursor Element: Warm-gold star with soft lavender halo (hidden over text inputs) */}
+      {/* Main Cursor Anchor - Centered on Mouse via -translate-x-1/2 -translate-y-1/2 */}
       <div
         ref={cursorRef}
-        className={`pointer-events-none fixed top-0 left-0 -ml-3 -mt-3 w-6 h-6 flex items-center justify-center will-change-transform transition-opacity duration-150 ${
-          isOverInput ? 'opacity-0' : 'opacity-100'
-        }`}
+        className="pointer-events-none fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center will-change-transform"
       >
-        {/* Soft Lavender Halo */}
+        {/* Soft Lavender Halo - gently expands on hover, brightens on project card */}
         <div
-          className={`absolute inset-0 rounded-full bg-[#d9c8ef]/45 blur-xs transition-transform duration-200 ${
-            isClicking ? 'scale-75' : 'scale-100'
+          className={`absolute rounded-full transition-all duration-200 ease-out ${
+            isClicking
+              ? 'w-10 h-10 bg-soft-blush/60 scale-125'
+              : isProjectCard
+              ? 'w-8 h-8 bg-dream-lavender/50 ring-2 ring-star-gold/60 scale-125 shadow-lg'
+              : isInteractive
+              ? 'w-7 h-7 bg-dream-lavender/40 ring-1 ring-dream-lavender/70 scale-115'
+              : 'w-5 h-5 bg-dream-lavender/25 scale-100'
           }`}
         />
 
-        {/* Tiny Rotating Star (Warm Gold Center) */}
+        {/* Orbiting Sparkle on Project Card Hover */}
+        {isProjectCard && !isClicking && (
+          <div className="absolute inset-0 animate-spin-slow pointer-events-none">
+            <span
+              className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-1.5 h-1.5 rounded-full bg-star-gold shadow-[0_0_6px_#f3cf75]"
+              aria-hidden="true"
+            />
+          </div>
+        )}
+
+        {/* Five-Pointed Magical Star SVG (Warm Gold Center) */}
         <svg
           viewBox="0 0 24 24"
-          className={`w-3.5 h-3.5 text-[#f3cf75] fill-current animate-spin-slow transition-transform duration-150 ${
-            isClicking ? 'scale-85' : 'scale-100'
+          className={`fill-current text-star-gold will-change-transform transition-all duration-150 ease-out ${
+            isClicking
+              ? 'w-6 h-6 scale-135 rotate-12'
+              : isProjectCard
+              ? 'w-5 h-5 scale-120 animate-spin-slow'
+              : isInteractive
+              ? 'w-4.5 h-4.5 scale-115'
+              : 'w-4 h-4 scale-100'
           }`}
-          style={{ filter: 'drop-shadow(0 0 3px rgba(243, 207, 117, 0.8))' }}
+          style={{
+            filter: isClicking
+              ? 'drop-shadow(0 0 10px rgba(243, 207, 117, 1)) drop-shadow(0 0 4px #a34063)'
+              : isProjectCard
+              ? 'drop-shadow(0 0 8px rgba(243, 207, 117, 0.95))'
+              : isInteractive
+              ? 'drop-shadow(0 0 6px rgba(243, 207, 117, 0.85))'
+              : 'drop-shadow(0 0 3px rgba(243, 207, 117, 0.7))',
+          }}
         >
-          <path d="M12 2l2.4 6.6L21 9.5l-5 4.5 1.5 6.8-5.5-3.5-5.5 3.5 1.5-6.8-5-4.5 6.6-.9z" />
+          {/* Classical 5-pointed star path */}
+          <path d="M12 2l2.6 6.9L22 9.6l-5.3 4.8 1.6 7.2L12 17.8l-6.3 3.8 1.6-7.2L2 9.6l7.4-.7L12 2z" />
         </svg>
       </div>
     </div>

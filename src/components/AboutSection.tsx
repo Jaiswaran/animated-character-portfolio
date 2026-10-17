@@ -55,7 +55,8 @@ export const AboutSection: React.FC = () => {
               ref={badgeRef}
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
-              className="w-full max-w-sm bg-white dark:bg-plum-dark rounded-3xl p-6 border-4 border-dashed border-rich-berry shadow-2xl relative transition-transform duration-150 ease-out cursor-pointer"
+              data-project-card="true"
+              className="project-card w-full max-w-sm bg-white dark:bg-plum-dark rounded-3xl p-6 border-4 border-dashed border-rich-berry shadow-2xl relative transition-transform duration-150 ease-out cursor-pointer"
               style={{
                 transform: isHovered
                   ? `perspective(600px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.02, 1.02, 1.02)`
