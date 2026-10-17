@@ -25,6 +25,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 }) => {
   const { play } = useSoundEffects();
   const pathRef = useRef<SVGPathElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(1);
   const [status, setStatus] = useState<DeliveryStatus>('idle');
   const [progressFraction, setProgressFraction] = useState(0); // 0 to 1
@@ -60,8 +61,13 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     }
   };
 
-  // Launch Delivery Animation
+  // Launch Delivery Animation. Only one flight may be active at a time.
   const startDelivery = (targetIndex: number) => {
+    if (status === 'dispatching') return;
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     play('dream-dispatch');
     setSelectedDestinationIndex(targetIndex);
     const targetProgress = WAYPOINT_PROGRESS[targetIndex];
@@ -94,15 +100,16 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       updateStarToProgress(current);
 
       if (t < 1) {
-        requestAnimationFrame(animate);
+        animationFrameRef.current = requestAnimationFrame(animate);
       } else {
+        animationFrameRef.current = null;
         setProgressFraction(targetProgress);
         updateStarToProgress(targetProgress);
         setStatus('delivered');
       }
     };
 
-    requestAnimationFrame(animate);
+    animationFrameRef.current = requestAnimationFrame(animate);
   };
 
   // Handle "Deliver a Dream" main button click
@@ -116,6 +123,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     if (pathRef.current) {
       updateStarToProgress(WAYPOINT_PROGRESS[selectedDestinationIndex]);
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
   }, []);
 
   const message = getDeliveryMessage(status, activeWaypoint.name, progressFraction);
@@ -368,7 +384,11 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               return (
                 <button
                   key={wp.id}
+                  type="button"
                   onClick={() => startDelivery(idx)}
+                  disabled={status === 'dispatching'}
+                  aria-pressed={isSelected}
+                  aria-label={'Deliver a dream to ' + wp.name}
                   className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-white/20 border-star-gold shadow-lg ring-2 ring-star-gold/40 scale-102'
