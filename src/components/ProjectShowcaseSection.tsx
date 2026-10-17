@@ -3,26 +3,100 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Music,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
   Moon,
+  Play,
+  RotateCw,
   Send,
   Sparkles,
-  ArrowRight,
-  Shield,
-  Compass,
+  Sun,
   Volume2,
-  VolumeX,
-  Play,
-  Pause,
-  RotateCw,
+  X,
 } from 'lucide-react';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 import { LullabyControls } from './LullabyLabSection';
-import { MELODY_PATTERNS } from '../utils/audioSynthesizer';
 import { GLOW_OPTIONS, GlowMode } from '../utils/nightlight';
 import { DELIVERY_WAYPOINTS } from '../utils/delivery';
+
+type CaseId = 'nightlight' | 'routes' | 'toys';
+type CaseFilter = 'all' | 'comfort' | 'journeys' | 'playroom';
+
+interface CaseStudy {
+  id: CaseId;
+  number: string;
+  category: Exclude<CaseFilter, 'all'>;
+  classification: string;
+  title: string;
+  tagline: string;
+  description: string;
+  challenge: string;
+  solution: string;
+  details: string[];
+  accent: string;
+  cta: string;
+}
+
+const CASE_STUDIES: CaseStudy[] = [
+  {
+    id: 'nightlight',
+    number: '01',
+    category: 'comfort',
+    classification: 'AMBIENT COMFORT',
+    title: 'Nightlight Collection',
+    tagline: 'A little light. A much softer night.',
+    description: 'A mood-responsive dream lantern that turns a bedtime routine into a tiny, calming ritual.',
+    challenge: 'Dark rooms can feel intimidating when it is time to sleep.',
+    solution: 'A live glow palette and day/night previews let the room shift from cosy sunset to quiet starlight.',
+    details: ['4 live colour moods', 'Day / night ambience', 'Shared state with the full sanctuary'],
+    accent: '#d9c8ef',
+    cta: 'Explore the collection',
+  },
+  {
+    id: 'routes',
+    number: '02',
+    category: 'journeys',
+    classification: 'STORY-DRIVEN MOTION',
+    title: 'Dream Delivery Routes',
+    tagline: 'Every dream deserves a safe landing.',
+    description: 'A star-powered courier route where destinations, progress, and dispatch states feel alive.',
+    challenge: 'A route map should feel like a journey, not a static diagram.',
+    solution: 'A curved SVG flight path, named dream ports, clear dispatch feedback, and reduced-motion support create a readable little story.',
+    details: ['3 illustrated destinations', 'Live dispatch integration', 'Smooth path animation'],
+    accent: '#f3cf75',
+    cta: 'Explore the route',
+  },
+  {
+    id: 'toys',
+    number: '03',
+    category: 'playroom',
+    classification: 'PLAYFUL INTERACTION',
+    title: 'Rattle & Block Toys',
+    tagline: 'Small blocks. Big midnight ideas.',
+    description: 'A tiny playroom where every click adds a piece, changes the palette, and builds a new bedtime toy.',
+    challenge: 'A showcase should reward curiosity instead of asking visitors to only look.',
+    solution: 'A hands-on block builder gives visitors a simple, immediate interaction with satisfying visual feedback.',
+    details: ['Live block stacking', 'Three colour palettes', 'Reset and rebuild controls'],
+    accent: '#f1c9d6',
+    cta: 'Build with Pip',
+  },
+];
+
+const FILTERS: Array<{ id: CaseFilter; label: string }> = [
+  { id: 'all', label: 'All case files' },
+  { id: 'comfort', label: 'Comfort' },
+  { id: 'journeys', label: 'Journeys' },
+  { id: 'playroom', label: 'Playroom' },
+];
+
+const TOY_PALETTES = [
+  ['#a34063', '#f3cf75', '#d9c8ef', '#7aa2f7', '#f1c9d6', '#a8d5ba'],
+  ['#635b9a', '#a7c7e7', '#f4d58d', '#e8a4a4', '#9fc9b6', '#fff8f1'],
+  ['#f3cf75', '#e89ba7', '#a7c7e7', '#b7a0d8', '#9fc9b6', '#fff8f1'],
+];
 
 interface ProjectShowcaseSectionProps {
   lullaby: LullabyControls;
@@ -40,464 +114,506 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   deliveryStatus,
 }) => {
   const { play } = useSoundEffects();
-  const [activeCategory, setActiveCategory] = useState<'all' | 'acoustics' | 'lighting' | 'routes'>('all');
+  const [activeFilter, setActiveFilter] = useState<CaseFilter>('all');
+  const [selectedCase, setSelectedCase] = useState<CaseStudy | null>(null);
+  const [isNightPreview, setIsNightPreview] = useState(true);
+  const [blockCount, setBlockCount] = useState(3);
+  const [toyPaletteIndex, setToyPaletteIndex] = useState(0);
+  const [activeWaypoint, setActiveWaypoint] = useState(0);
+  const [dispatchQueued, setDispatchQueued] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const { isPlaying, isMuted, play: playLullaby, pause: pauseLullaby, windUp, windup, activePatternIndex, setPattern } =
-    lullaby;
+  const currentGlow = GLOW_OPTIONS.find((glow) => glow.id === activeGlow) || GLOW_OPTIONS[0];
+  const visibleCases = CASE_STUDIES.filter((item) => activeFilter === 'all' || item.category === activeFilter);
+  const isLullabyAudible = lullaby.isPlaying && !lullaby.isMuted;
 
-  const currentPattern = MELODY_PATTERNS[activePatternIndex];
-  const currentGlow = GLOW_OPTIONS.find((g) => g.id === activeGlow) || GLOW_OPTIONS[0];
+  const closeCase = () => setSelectedCase(null);
 
-  const handleLullabyToggle = () => {
+  const toggleSoundscape = () => {
     play('button-click');
-    if (isPlaying) {
-      pauseLullaby();
+    if (isLullabyAudible) {
+      lullaby.pause();
     } else {
       lullaby.setMuted(false);
-      playLullaby();
+      lullaby.play();
     }
   };
 
-  const handleQuickWind = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    play('wind-key');
-    windUp(25);
-    if (!isPlaying) {
-      lullaby.setMuted(false);
-      playLullaby();
-    }
-  };
-
-  const handleGlowPick = (glowId: GlowMode, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const chooseGlow = (glowId: GlowMode) => {
     play('nightlight-change');
     onSelectGlow(glowId);
   };
 
-  const handleDispatchClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const launchDispatch = () => {
+    if (deliveryStatus === 'dispatching') return;
+    play('dream-dispatch');
     onQuickDispatch();
+    setDispatchQueued(true);
+  };
+
+  const addBlock = () => {
+    play('button-click');
+    setBlockCount((count) => Math.min(6, count + 1));
+  };
+
+  useEffect(() => {
+    if (!selectedCase) return;
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectedCase(null);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [selectedCase]);
+
+  const renderNightlightArtwork = (large = false) => (
+    <div
+      className={'case-night-scene ' + (large ? 'case-night-scene-large' : '') + (isNightPreview ? ' is-night' : ' is-day')}
+      style={{ '--case-glow': currentGlow.hex } as React.CSSProperties}
+    >
+      <span className="case-scene-orb case-orb-one" aria-hidden="true" />
+      <span className="case-scene-orb case-orb-two" aria-hidden="true" />
+      <span className="case-scene-moon" aria-hidden="true">{isNightPreview ? '☾' : '☼'}</span>
+      <img
+        src="/assets/pip_dream_lantern.png"
+        alt="Pip's crescent moon dream lantern"
+        className="case-lantern-art"
+        onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
+      />
+      <span className="case-scene-caption">{isNightPreview ? 'NIGHT MODE · SOFT GLOW' : 'DAY MODE · WARM LIGHT'}</span>
+    </div>
+  );
+
+  const renderRouteArtwork = (large = false) => (
+    <div className={'case-route-scene ' + (large ? 'case-route-scene-large' : '')}>
+      <div className="case-route-stars" aria-hidden="true">✦　·　✧　·　✦　·　✧</div>
+      <svg viewBox="0 0 520 220" role="img" aria-label="A curved starlight path joining three dream destinations">
+        <defs>
+          <linearGradient id={large ? 'route-gradient-large' : 'route-gradient'} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#f1c9d6" />
+            <stop offset="50%" stopColor="#d9c8ef" />
+            <stop offset="100%" stopColor="#f3cf75" />
+          </linearGradient>
+        </defs>
+        <path d="M45 155 C105 30 170 45 235 115 S360 195 475 55" fill="none" stroke="rgba(255,248,241,.13)" strokeWidth="13" strokeLinecap="round" />
+        <path className="case-route-path" d="M45 155 C105 30 170 45 235 115 S360 195 475 55" fill="none" stroke={'url(#' + (large ? 'route-gradient-large' : 'route-gradient') + ')'} strokeWidth="3.5" strokeLinecap="round" strokeDasharray="8 11" />
+        {[{x:45,y:155},{x:235,y:115},{x:475,y:55}].map((point, index) => (
+          <g key={index}>
+            <circle cx={point.x} cy={point.y} r={activeWaypoint === index ? 19 : 13} fill={index === 0 ? '#a34063' : index === 1 ? '#7aa2f7' : '#f3cf75'} opacity={activeWaypoint === index ? 0.3 : 0.15} />
+            <circle cx={point.x} cy={point.y} r="7" fill={index === 0 ? '#f1c9d6' : index === 1 ? '#d9c8ef' : '#f3cf75'} stroke="#fff8f1" strokeWidth="2" />
+            <text x={point.x} y={point.y + 31} fill="#fff8f1" fontSize="11" textAnchor="middle">{['ATTIC', 'NURSERY', 'CLOUD SPIRE'][index]}</text>
+          </g>
+        ))}
+        <g className="case-route-star">
+          <path d="M0 -12 L3 -3 L12 0 L3 3 L0 12 L-3 3 L-12 0 L-3 -3 Z" fill="#f3cf75" />
+        </g>
+      </svg>
+      <span className="case-route-caption">3 DREAM PORTS · 1 VERY DEDICATED STAR</span>
+    </div>
+  );
+
+  const renderToyArtwork = (large = false) => {
+    const colors = TOY_PALETTES[toyPaletteIndex];
+    return (
+      <div className={'case-toy-scene ' + (large ? 'case-toy-scene-large' : '')}>
+        <div className="case-toy-sticker">PIP'S PLAYROOM</div>
+        <div className="case-toy-sparkle" aria-hidden="true">✦</div>
+        <div className="case-toy-tower" aria-label={blockCount + ' blocks in the current tower'}>
+          {Array.from({ length: blockCount }, (_, index) => {
+            const blockIndex = blockCount - 1 - index;
+            return (
+              <span
+                key={blockIndex}
+                className={'case-toy-block case-toy-block-' + (blockIndex % 3)}
+                style={{ backgroundColor: colors[blockIndex % colors.length], animationDelay: (blockIndex * 55) + 'ms' }}
+              >
+                {blockIndex === 0 ? '✦' : blockIndex % 2 === 0 ? '☾' : '•'}
+              </span>
+            );
+          })}
+        </div>
+        <div className="case-toy-floor" />
+        <span className="case-toy-counter">{blockCount} / 6 BLOCKS BUILT</span>
+      </div>
+    );
   };
 
   return (
     <section
       id="projects"
-      className="py-16 md:py-24 relative overflow-hidden"
-      aria-label="Pip's Celestial Dreamwork Portfolio"
+      className="case-showcase-section relative overflow-hidden py-20 md:py-28"
+      aria-labelledby="case-showcase-title"
       data-project-showcase="true"
     >
-      {/* Decorative Star Constellation Background Accents */}
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-30 dark:opacity-20">
-        <div className="absolute top-10 left-10 text-star-gold text-2xl animate-pulse">✦</div>
-        <div className="absolute top-1/2 right-12 text-star-gold text-xl animate-pulse" style={{ animationDelay: '1s' }}>✧</div>
-        <div className="absolute bottom-16 left-1/4 text-soft-blush text-3xl animate-floating-slow">☁️</div>
-      </div>
+      <div className="case-showcase-orbit case-orbit-left" aria-hidden="true" />
+      <div className="case-showcase-orbit case-orbit-right" aria-hidden="true" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Showcase Header */}
-        <div className="text-center max-w-3xl mx-auto mb-10 md:mb-14">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-star-gold/25 dark:bg-plum border border-star-gold/40 text-warm-brown dark:text-star-gold font-bubbly text-xs uppercase tracking-widest font-semibold mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-star-gold" aria-hidden="true" />
-            <span>Sector 9 Laboratory • Master Inventions</span>
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="case-showcase-heading mx-auto mb-10 max-w-4xl text-center md:mb-14">
+          <div className="case-eyebrow">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            <span>PIP'S MIDNIGHT OBSERVATORY</span>
+            <span className="case-eyebrow-dot" aria-hidden="true">✦</span>
+            <span>INTERACTIVE CASE FILES</span>
           </div>
-
-          <h2 className="font-serif-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold text-plum dark:text-star-gold tracking-tight">
-            Dreamwork Showcase
+          <h2 id="case-showcase-title" className="case-showcase-title">
+            Tiny inventions. <span>Huge dreams.</span>
           </h2>
-
-          <p className="font-bubbly text-warm-brown/85 dark:text-cream/80 text-sm sm:text-lg mt-3 leading-relaxed">
-            Every slumber artifact in Pip's Midnight Observatory is hand-crafted with care. Hover any card to activate celestial focus, or launch the interactive lab controls directly.
+          <p className="case-showcase-intro">
+            Three little worlds from Pip's workshop. Explore the thinking behind each invention, change the controls, and see what happens.
           </p>
-
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6">
-            {[
-              { id: 'all', label: 'All Inventions (3)' },
-              { id: 'acoustics', label: '♫ Acoustics & Lullabies' },
-              { id: 'lighting', label: '🌙 Luminescent Defense' },
-              { id: 'routes', label: '⭐ Starlight Logistics' },
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  play('button-click');
-                  setActiveCategory(cat.id as any);
-                }}
-                className={`px-4 py-1.5 sm:px-5 sm:py-2 rounded-full font-bubbly text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                  activeCategory === cat.id
-                    ? 'bg-rich-berry text-white shadow-md scale-102'
-                    : 'bg-white/80 dark:bg-plum/70 text-warm-brown dark:text-cream/80 hover:bg-soft-blush/40 border border-rich-berry/15'
-                }`}
-                aria-pressed={activeCategory === cat.id}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="case-heading-footer">
+            <div className="case-filter-row" role="group" aria-label="Filter case studies">
+              {FILTERS.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => {
+                    play('button-click');
+                    setActiveFilter(filter.id);
+                  }}
+                  aria-pressed={activeFilter === filter.id}
+                  className={'case-filter-chip' + (activeFilter === filter.id ? ' is-active' : '')}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={toggleSoundscape}
+              className="case-sound-toggle"
+              aria-pressed={isLullabyAudible}
+              aria-label={isLullabyAudible ? 'Pause the observatory lullaby' : 'Play the observatory lullaby'}
+            >
+              <span className={'case-sound-indicator' + (isLullabyAudible ? ' is-playing' : '')} aria-hidden="true">
+                <i /><i /><i /><i />
+              </span>
+              <span>{isLullabyAudible ? 'Soundscape on' : 'Try the soundscape'}</span>
+              {isLullabyAudible ? <Volume2 className="h-4 w-4" /> : <Play className="h-3.5 w-3.5" />}
+            </button>
           </div>
         </div>
 
-        {/* 3 Premium Imaginative Showcase Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* ======================================================== */}
-          {/* CARD 1: LULLABY LAB (Acoustics & Synthesis)             */}
-          {/* ======================================================== */}
-          {(activeCategory === 'all' || activeCategory === 'acoustics') && (
+        <div className="case-study-grid">
+          {visibleCases.map((item, index) => (
             <article
+              key={item.id}
+              className="case-study-card"
               data-project-card="true"
-              className="project-card group relative bg-white/95 dark:bg-plum rounded-[32px] p-6 sm:p-7 border-2 border-rich-berry/20 dark:border-star-gold/25 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between overflow-hidden"
-              aria-label="Project 1: Pip's Lullaby Lab"
+              style={{ animationDelay: (index * 110) + 'ms', '--case-accent': item.accent } as React.CSSProperties}
             >
-              {/* Background Glow Backdrop */}
-              <div
-                className="pointer-events-none absolute -top-24 -right-24 w-52 h-52 bg-pink-200/40 dark:bg-pink-900/20 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-500"
-                aria-hidden="true"
-              />
-
-              {/* Top Tag & Classification */}
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <span className="font-bubbly text-[11px] font-bold tracking-wider uppercase px-3 py-1 rounded-full bg-soft-blush/60 dark:bg-plum-dark text-rich-berry dark:text-soft-blush border border-rich-berry/20">
-                    #01 • ACOUSTIC LAB
-                  </span>
-
-                  {/* Live Equalizer Mini Indicator */}
-                  <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-cream dark:bg-plum-dark border border-rich-berry/10">
-                    <span className="text-[10px] font-bubbly font-semibold text-warm-brown/70 dark:text-cream/70">
-                      {isPlaying && !isMuted ? 'PLAYING' : 'IDLE'}
-                    </span>
-                    <div className="flex items-end gap-0.5 h-3 w-4">
-                      <span className={`w-1 bg-rich-berry dark:bg-star-gold rounded-full ${isPlaying && !isMuted ? 'eq-bar-1' : 'h-1'}`} />
-                      <span className={`w-1 bg-rich-berry dark:bg-star-gold rounded-full ${isPlaying && !isMuted ? 'eq-bar-2' : 'h-1.5'}`} />
-                      <span className={`w-1 bg-rich-berry dark:bg-star-gold rounded-full ${isPlaying && !isMuted ? 'eq-bar-3' : 'h-1'}`} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Artwork Showcase Container */}
-                <div className="relative rounded-2xl overflow-hidden border-2 border-rich-berry/20 bg-cream dark:bg-plum-dark p-3.5 mb-5 group-hover:border-rich-berry/40 transition-colors shadow-inner">
-                  <img
-                    src="/assets/pip_lullaby_box.png"
-                    alt="Pip's pastel unicorn music box with wind-up mechanism"
-                    className="w-full h-44 object-contain rounded-xl transform group-hover:scale-105 transition-transform duration-500"
-                  />
-
-                  {/* Floating Windup Spring Pill */}
-                  <div className="absolute bottom-3 left-3 right-3 bg-white/90 dark:bg-plum/90 backdrop-blur-sm rounded-xl p-2 border border-rich-berry/15 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <RotateCw className="w-3.5 h-3.5 text-rich-berry dark:text-star-gold" />
-                      <span className="font-bubbly text-xs font-semibold text-warm-brown dark:text-cream">
-                        Spring: {windup}%
-                      </span>
-                    </div>
-                    <button
-                      onClick={handleQuickWind}
-                      className="px-2 py-0.5 rounded-md bg-star-gold hover:bg-amber-300 text-warm-brown font-bubbly text-[11px] font-bold shadow-xs active:scale-95 transition-all"
-                      title="Quick wind-up spring +25%"
-                    >
-                      + Wind Up
-                    </button>
-                  </div>
-                </div>
-
-                {/* Title & Description */}
-                <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-star-gold group-hover:text-rich-berry transition-colors">
-                  Harmonic Lullaby Lab
-                </h3>
-
-                <p className="font-bubbly text-xs sm:text-sm text-warm-brown/85 dark:text-cream/80 mt-2 leading-relaxed">
-                  Real Web Audio music box tones with soft oscillator bells, gentle BPM cadences, and anti-overlap frequency envelopes.
-                </p>
-
-                {/* Interactive Melody Quick-Selector */}
-                <div className="mt-4 pt-3 border-t border-rich-berry/10">
-                  <span className="font-bubbly text-[10px] uppercase font-bold text-warm-brown/60 dark:text-cream/60 tracking-wider block mb-1.5">
-                    Selectable Melodies:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {MELODY_PATTERNS.map((p, idx) => (
-                      <button
-                        key={p.name}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          play('tune-select');
-                          setPattern(idx);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg font-bubbly text-[11px] font-medium transition-all ${
-                          activePatternIndex === idx
-                            ? 'bg-rich-berry text-white shadow-xs'
-                            : 'bg-soft-blush/30 dark:bg-plum-dark text-warm-brown/80 dark:text-cream/80 hover:bg-soft-blush/60'
-                        }`}
-                      >
-                        {p.name.split(' ')[0]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="case-card-topline">
+                <span className="case-number">{item.number} <span aria-hidden="true">/</span> 03</span>
+                <span className="case-classification">{item.classification}</span>
               </div>
 
-              {/* Bottom Action Footer */}
-              <div className="mt-6 pt-4 border-t border-rich-berry/15 flex items-center justify-between gap-3">
-                <button
-                  onClick={handleLullabyToggle}
-                  className="px-3.5 py-2 rounded-xl bg-star-gold/30 hover:bg-star-gold/50 text-warm-brown dark:text-star-gold font-bubbly text-xs font-bold border border-star-gold/50 flex items-center gap-1.5 active:scale-95 transition-all"
-                  aria-label={isPlaying ? 'Pause lullaby playback' : 'Play lullaby playback'}
-                >
-                  {isPlaying ? (
-                    <>
-                      <Pause className="w-3.5 h-3.5 fill-current" />
-                      <span>Pause Tune</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Preview Tune</span>
-                    </>
-                  )}
-                </button>
-
-                <a
-                  href="#lullaby"
-                  onClick={() => play('nav-click')}
-                  className="inline-flex items-center gap-1.5 text-xs font-bubbly font-bold text-rich-berry dark:text-star-gold hover:underline group-hover:translate-x-1 transition-transform"
-                >
-                  <span>Open Full Lab</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </article>
-          )}
-
-          {/* ======================================================== */}
-          {/* CARD 2: NIGHTLIGHT SANCTUARY (Luminescent Defense)      */}
-          {/* ======================================================== */}
-          {(activeCategory === 'all' || activeCategory === 'lighting') && (
-            <article
-              data-project-card="true"
-              className="project-card group relative bg-white/95 dark:bg-plum rounded-[32px] p-6 sm:p-7 border-2 border-rich-berry/20 dark:border-star-gold/25 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between overflow-hidden"
-              aria-label="Project 2: Nightlight Sanctuary"
-            >
-              {/* Dynamic Glow Aura Backdrop based on active mood */}
-              <div
-                className="pointer-events-none absolute -top-24 -right-24 w-52 h-52 rounded-full blur-3xl group-hover:scale-125 transition-all duration-500 opacity-40 dark:opacity-30"
-                style={{ backgroundColor: currentGlow.hex }}
-                aria-hidden="true"
-              />
-
-              {/* Top Tag & Classification */}
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <span className="font-bubbly text-[11px] font-bold tracking-wider uppercase px-3 py-1 rounded-full bg-soft-blush/60 dark:bg-plum-dark text-rich-berry dark:text-soft-blush border border-rich-berry/20">
-                    #02 • LUMEN SANCTUARY
-                  </span>
-
-                  {/* Active Mood Badge */}
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cream dark:bg-plum-dark border border-rich-berry/10">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shadow-xs"
-                      style={{ backgroundColor: currentGlow.hex }}
-                      aria-hidden="true"
-                    />
-                    <span className="text-[10px] font-bubbly font-bold text-warm-brown/80 dark:text-cream/80">
-                      {currentGlow.name}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Artwork Showcase Container */}
-                <div className="relative rounded-2xl overflow-hidden border-2 border-rich-berry/20 bg-cream dark:bg-plum-dark p-3.5 mb-5 group-hover:border-rich-berry/40 transition-colors shadow-inner flex items-center justify-center">
-                  <div
-                    className="relative w-full h-44 flex items-center justify-center rounded-xl transition-all duration-500"
-                    style={{
-                      background: `radial-gradient(circle, ${currentGlow.hex}25 0%, transparent 70%)`,
-                    }}
-                  >
-                    <img
-                      src="/assets/pip_dream_lantern.png"
-                      alt="Pip's official crescent moon dream lantern glowing warmly"
-                      className="h-40 w-auto object-contain transform group-hover:scale-105 transition-transform duration-500"
-                      style={{
-                        filter: `drop-shadow(0 0 16px ${currentGlow.hex})`,
-                      }}
-                    />
-                  </div>
-
-                  {/* Live Glow Palette Swatches Bar */}
-                  <div className="absolute bottom-3 left-3 right-3 bg-white/90 dark:bg-plum/90 backdrop-blur-sm rounded-xl p-2 border border-rich-berry/15 flex items-center justify-between">
-                    <span className="font-bubbly text-xs font-semibold text-warm-brown dark:text-cream">
-                      Mood:
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {GLOW_OPTIONS.map((g) => (
+              <div className="case-art-frame">
+                {item.id === 'nightlight' && (
+                  <>
+                    {renderNightlightArtwork()}
+                    <div className="case-glow-swatches" role="group" aria-label="Change nightlight colour">
+                      {GLOW_OPTIONS.map((glow) => (
                         <button
-                          key={g.id}
-                          onClick={(e) => handleGlowPick(g.id, e)}
-                          className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
-                            activeGlow === g.id
-                              ? 'border-warm-brown dark:border-white scale-125 shadow-md'
-                              : 'border-transparent hover:scale-110 opacity-70'
-                          }`}
-                          style={{ backgroundColor: g.hex }}
-                          aria-label={`Select ${g.name} lantern glow`}
-                          title={g.name}
+                          key={glow.id}
+                          type="button"
+                          className={'case-glow-swatch' + (activeGlow === glow.id ? ' is-selected' : '')}
+                          style={{ backgroundColor: glow.hex }}
+                          aria-label={'Choose ' + glow.name}
+                          aria-pressed={activeGlow === glow.id}
+                          title={glow.name}
+                          onClick={() => chooseGlow(glow.id)}
                         />
                       ))}
                     </div>
-                  </div>
-                </div>
-
-                {/* Title & Description */}
-                <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-star-gold group-hover:text-rich-berry transition-colors">
-                  Nightlight Sanctuary
-                </h3>
-
-                <p className="font-bubbly text-xs sm:text-sm text-warm-brown/85 dark:text-cream/80 mt-2 leading-relaxed">
-                  Pip's official crescent moon dream lantern with dynamic SVG glow filters, 4 emotional color moods, and day/night ambience previews.
-                </p>
-
-                {/* Key Spec Badges */}
-                <div className="mt-4 pt-3 border-t border-rich-berry/10 flex flex-wrap gap-2 text-[11px] font-bubbly">
-                  <span className="px-2.5 py-1 rounded-lg bg-soft-blush/30 dark:bg-plum-dark text-warm-brown/80 dark:text-cream/80">
-                    🌙 Day/Night Preview
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-soft-blush/30 dark:bg-plum-dark text-warm-brown/80 dark:text-cream/80">
-                    ⏳ 4 Slumber Timers
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-soft-blush/30 dark:bg-plum-dark text-warm-brown/80 dark:text-cream/80">
-                    🛡️ Night Terror Ward
-                  </span>
-                </div>
-              </div>
-
-              {/* Bottom Action Footer */}
-              <div className="mt-6 pt-4 border-t border-rich-berry/15 flex items-center justify-between gap-3">
-                <span className="text-xs font-bubbly text-warm-brown/70 dark:text-cream/70 italic">
-                  “Casts away bad dreams”
-                </span>
-
-                <a
-                  href="#nightlight"
-                  onClick={() => play('nav-click')}
-                  className="inline-flex items-center gap-1.5 text-xs font-bubbly font-bold text-rich-berry dark:text-star-gold hover:underline group-hover:translate-x-1 transition-transform"
-                >
-                  <span>Adjust Sanctuary</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </article>
-          )}
-
-          {/* ======================================================== */}
-          {/* CARD 3: DREAM DELIVERY ROUTES (Starlight Navigation)    */}
-          {/* ======================================================== */}
-          {(activeCategory === 'all' || activeCategory === 'routes') && (
-            <article
-              data-project-card="true"
-              className="project-card group relative bg-white/95 dark:bg-plum rounded-[32px] p-6 sm:p-7 border-2 border-rich-berry/20 dark:border-star-gold/25 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between overflow-hidden"
-              aria-label="Project 3: Dream Delivery Routes"
-            >
-              {/* Star Gold Backdrop */}
-              <div
-                className="pointer-events-none absolute -top-24 -right-24 w-52 h-52 bg-star-gold/30 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-500"
-                aria-hidden="true"
-              />
-
-              {/* Top Tag & Classification */}
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <span className="font-bubbly text-[11px] font-bold tracking-wider uppercase px-3 py-1 rounded-full bg-soft-blush/60 dark:bg-plum-dark text-rich-berry dark:text-soft-blush border border-rich-berry/20">
-                    #03 • SKY LOGISTICS
-                  </span>
-
-                  {/* Route Status Mini Badge */}
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cream dark:bg-plum-dark border border-rich-berry/10">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span className="text-[10px] font-bubbly font-bold text-warm-brown/80 dark:text-cream/80 uppercase">
-                      {deliveryStatus === 'dispatching' ? 'IN FLIGHT' : 'WAYPOINTS READY'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Artwork Showcase Container */}
-                <div className="relative rounded-2xl overflow-hidden border-2 border-rich-berry/20 bg-cream dark:bg-plum-dark p-3.5 mb-5 group-hover:border-rich-berry/40 transition-colors shadow-inner flex items-center justify-center">
-                  <div className="relative w-full h-44 bg-gradient-to-br from-indigo-950/20 to-purple-950/30 rounded-xl flex items-center justify-center p-3">
-                    {/* Mini SVG Route Silhouette */}
-                    <svg viewBox="0 0 400 150" className="w-full h-full opacity-70">
-                      <path
-                        d="M 40 80 Q 140 20 220 70 T 360 40"
-                        fill="none"
-                        stroke="#f3cf75"
-                        strokeWidth="3"
-                        strokeDasharray="6 4"
-                      />
-                      <circle cx="40" cy="80" r="7" fill="#a34063" />
-                      <circle cx="220" cy="70" r="7" fill="#d9c8ef" />
-                      <circle cx="360" cy="40" r="7" fill="#f3cf75" />
-                    </svg>
-
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-4xl filter drop-shadow-[0_0_12px_#f3cf75] animate-floating">
-                        ⭐
-                      </span>
+                  </>
+                )}
+                {item.id === 'routes' && (
+                  <>
+                    {renderRouteArtwork()}
+                    <div className="case-route-status">
+                      <span className={'case-status-dot' + (deliveryStatus === 'dispatching' ? ' is-moving' : '')} />
+                      <span>{deliveryStatus === 'dispatching' ? 'STAR COURIER IN FLIGHT' : deliveryStatus === 'delivered' ? 'DREAM DELIVERED' : 'ALL DREAM PORTS READY'}</span>
                     </div>
-                  </div>
-
-                  {/* Quick Dispatch Pill Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3 bg-white/90 dark:bg-plum/90 backdrop-blur-sm rounded-xl p-2 border border-rich-berry/15 flex items-center justify-between">
-                    <span className="font-bubbly text-xs font-semibold text-warm-brown dark:text-cream">
-                      Destinations: 3 Ports
-                    </span>
+                  </>
+                )}
+                {item.id === 'toys' && (
+                  <>
+                    {renderToyArtwork()}
                     <button
-                      onClick={handleDispatchClick}
-                      className="px-2.5 py-1 rounded-lg bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly text-[11px] font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-                      title="Launch dream dispatch"
+                      type="button"
+                      className="case-toy-quick-add"
+                      onClick={addBlock}
+                      disabled={blockCount >= 6}
+                      aria-label="Add a block to the preview tower"
                     >
-                      <Send className="w-3 h-3" />
-                      <span>Deliver Dream</span>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {blockCount >= 6 ? 'Tower complete' : 'Add a block'}
                     </button>
-                  </div>
+                  </>
+                )}
+              </div>
+
+              <div className="case-card-copy">
+                <div className="case-title-row">
+                  <span className="case-category-marker" aria-hidden="true">{item.id === 'nightlight' ? '☾' : item.id === 'routes' ? '✧' : '▦'}</span>
+                  <h3>{item.title}</h3>
                 </div>
+                <p className="case-tagline">{item.tagline}</p>
+                <p className="case-description">{item.description}</p>
 
-                {/* Title & Description */}
-                <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-star-gold group-hover:text-rich-berry transition-colors">
-                  Dream Delivery Routes
-                </h3>
-
-                <p className="font-bubbly text-xs sm:text-sm text-warm-brown/85 dark:text-cream/80 mt-2 leading-relaxed">
-                  Interactive SVG starlight courier route connecting 3 dreamy waypoints. Features smooth cubic curve motion physics and reduced-motion support.
-                </p>
-
-                {/* Destination Waypoint Badges */}
-                <div className="mt-4 pt-3 border-t border-rich-berry/10 flex flex-wrap gap-1.5 text-[10px] font-bubbly">
-                  {DELIVERY_WAYPOINTS.map((wp) => (
-                    <span
-                      key={wp.id}
-                      className="px-2 py-0.5 rounded-md bg-soft-blush/30 dark:bg-plum-dark text-warm-brown/80 dark:text-cream/80"
-                    >
-                      {wp.name}
-                    </span>
+                <div className="case-card-tags">
+                  {item.details.slice(0, 2).map((detail) => (
+                    <span key={detail}>{detail}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Bottom Action Footer */}
-              <div className="mt-6 pt-4 border-t border-rich-berry/15 flex items-center justify-between gap-3">
-                <span className="text-xs font-bubbly text-warm-brown/70 dark:text-cream/70 italic">
-                  “Zero teleportation”
+              <div className="case-card-footer">
+                <span className="case-footer-note">
+                  {item.id === 'nightlight' ? currentGlow.name : item.id === 'routes' ? DELIVERY_WAYPOINTS.length + ' magical stops' : 'Your build: ' + blockCount + ' blocks'}
                 </span>
-
-                <a
-                  href="#map"
-                  onClick={() => play('nav-click')}
-                  className="inline-flex items-center gap-1.5 text-xs font-bubbly font-bold text-rich-berry dark:text-star-gold hover:underline group-hover:translate-x-1 transition-transform"
+                <button
+                  type="button"
+                  className="case-open-button"
+                  onClick={() => {
+                    play('button-click');
+                    setSelectedCase(item);
+                    setDispatchQueued(false);
+                  }}
+                  aria-haspopup="dialog"
+                  aria-label={'Open case study: ' + item.title}
                 >
-                  <span>Explore Route Map</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
+                  <span>{item.cta}</span>
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </button>
               </div>
             </article>
-          )}
+          ))}
+        </div>
+
+        <div className="case-showcase-bottom">
+          <div className="case-bottom-star" aria-hidden="true">✦</div>
+          <p>Made with moonlight, a little mischief, and an unreasonable number of tiny details.</p>
+          <a href="#origin" onClick={() => play('nav-click')}>
+            Meet the dreamer behind it <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </a>
         </div>
       </div>
+
+      {selectedCase && (
+        <div
+          className="case-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCase();
+          }}
+        >
+          <div
+            ref={modalRef}
+            className="case-modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="case-dialog-title"
+            aria-describedby="case-dialog-description"
+            style={{ '--case-accent': selectedCase.accent } as React.CSSProperties}
+          >
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="case-modal-close"
+              onClick={closeCase}
+              aria-label="Close case study"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+
+            <div className="case-modal-scroll">
+              <div className="case-modal-header">
+                <span className="case-modal-kicker">CASE FILE {selectedCase.number} · {selectedCase.classification}</span>
+                <h2 id="case-dialog-title">{selectedCase.title}</h2>
+                <p id="case-dialog-description">{selectedCase.description}</p>
+              </div>
+
+              {selectedCase.id === 'nightlight' && (
+                <div className="case-modal-content">
+                  {renderNightlightArtwork(true)}
+                  <div className="case-control-card">
+                    <div className="case-control-heading">
+                      <div>
+                        <span className="case-control-label">LIVE CONTROL</span>
+                        <h3>Choose the night's colour</h3>
+                      </div>
+                      <span className="case-live-pill"><span /> LIVE</span>
+                    </div>
+                    <div className="case-modal-glow-grid">
+                      {GLOW_OPTIONS.map((glow) => (
+                        <button
+                          key={glow.id}
+                          type="button"
+                          className={'case-modal-glow-option' + (activeGlow === glow.id ? ' is-selected' : '')}
+                          onClick={() => chooseGlow(glow.id)}
+                          aria-pressed={activeGlow === glow.id}
+                        >
+                          <span className="case-modal-glow-dot" style={{ backgroundColor: glow.hex }} />
+                          <span><b>{glow.name}</b><small>{glow.subtitle}</small></span>
+                          {activeGlow === glow.id && <Check className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="case-day-night-toggle" role="group" aria-label="Preview lighting">
+                      <button type="button" className={!isNightPreview ? 'is-selected' : ''} aria-pressed={!isNightPreview} onClick={() => setIsNightPreview(false)}>
+                        <Sun className="h-4 w-4" /> Day preview
+                      </button>
+                      <button type="button" className={isNightPreview ? 'is-selected' : ''} aria-pressed={isNightPreview} onClick={() => setIsNightPreview(true)}>
+                        <Moon className="h-4 w-4" /> Night preview
+                      </button>
+                    </div>
+                  </div>
+                  <div className="case-story-grid">
+                    <div><span>THE CHALLENGE</span><p>{selectedCase.challenge}</p></div>
+                    <div><span>THE SOLUTION</span><p>{selectedCase.solution}</p></div>
+                  </div>
+                  <a className="case-modal-primary" href="#nightlight" onClick={() => { play('nav-click'); closeCase(); }}>
+                    Open the full Nightlight Sanctuary <ArrowRight className="h-4 w-4" />
+                  </a>
+                </div>
+              )}
+
+              {selectedCase.id === 'routes' && (
+                <div className="case-modal-content">
+                  {renderRouteArtwork(true)}
+                  <div className="case-control-card">
+                    <div className="case-control-heading">
+                      <div>
+                        <span className="case-control-label">ROUTE INTEL</span>
+                        <h3>{DELIVERY_WAYPOINTS[activeWaypoint].name}</h3>
+                      </div>
+                      <span className="case-waypoint-emoji">{DELIVERY_WAYPOINTS[activeWaypoint].emoji}</span>
+                    </div>
+                    <p className="case-waypoint-tagline">{DELIVERY_WAYPOINTS[activeWaypoint].tagline} <span>·</span> {DELIVERY_WAYPOINTS[activeWaypoint].time}</p>
+                    <div className="case-waypoint-picker" role="group" aria-label="Explore dream destinations">
+                      {DELIVERY_WAYPOINTS.map((waypoint, index) => (
+                        <button
+                          key={waypoint.id}
+                          type="button"
+                          onClick={() => { setActiveWaypoint(index); setDispatchQueued(false); }}
+                          className={activeWaypoint === index ? 'is-selected' : ''}
+                          aria-pressed={activeWaypoint === index}
+                        >
+                          <span>{waypoint.emoji}</span><b>{waypoint.name}</b><small>Port 0{index + 1}</small>
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="case-modal-primary case-dispatch-button"
+                      onClick={launchDispatch}
+                      disabled={deliveryStatus === 'dispatching'}
+                    >
+                      <Send className="h-4 w-4" />
+                      {deliveryStatus === 'dispatching' ? 'Star courier is in flight…' : 'Dispatch the next dream'}
+                    </button>
+                    {dispatchQueued && <p className="case-inline-confirmation" role="status"><Check className="h-4 w-4" /> Dispatch started. Follow the live route below.</p>}
+                  </div>
+                  <div className="case-story-grid">
+                    <div><span>THE CHALLENGE</span><p>{selectedCase.challenge}</p></div>
+                    <div><span>THE SOLUTION</span><p>{selectedCase.solution}</p></div>
+                  </div>
+                  <a className="case-modal-secondary" href="#map" onClick={() => { play('nav-click'); closeCase(); }}>
+                    Watch the full live route map <ArrowRight className="h-4 w-4" />
+                  </a>
+                </div>
+              )}
+
+              {selectedCase.id === 'toys' && (
+                <div className="case-modal-content">
+                  {renderToyArtwork(true)}
+                  <div className="case-control-card">
+                    <div className="case-control-heading">
+                      <div>
+                        <span className="case-control-label">BUILD STATION</span>
+                        <h3>Your tiny tower</h3>
+                      </div>
+                      <span className="case-build-count">{blockCount} / 6</span>
+                    </div>
+                    <p className="case-waypoint-tagline">Stack a new piece or switch the toy's colour story.</p>
+                    <div className="case-build-actions">
+                      <button type="button" className="case-build-add" onClick={addBlock} disabled={blockCount >= 6}>
+                        <Sparkles className="h-4 w-4" /> {blockCount >= 6 ? 'Tower complete!' : 'Add a block'}
+                      </button>
+                      <button
+                        type="button"
+                        className="case-build-reset"
+                        onClick={() => { play('button-click'); setBlockCount(3); }}
+                      >
+                        <RotateCw className="h-4 w-4" /> Rebuild
+                      </button>
+                    </div>
+                    <div className="case-palette-picker" role="group" aria-label="Choose toy colour palette">
+                      {TOY_PALETTES.map((palette, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={'case-palette-option' + (toyPaletteIndex === index ? ' is-selected' : '')}
+                          onClick={() => { play('button-click'); setToyPaletteIndex(index); }}
+                          aria-pressed={toyPaletteIndex === index}
+                          aria-label={'Choose palette ' + (index + 1)}
+                        >
+                          {palette.slice(0, 4).map((color) => <span key={color} style={{ backgroundColor: color }} />)}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="case-build-progress" role="progressbar" aria-label="Tower build progress" aria-valuemin={0} aria-valuemax={6} aria-valuenow={blockCount}>
+                      <span style={{ width: ((blockCount / 6) * 100) + '%' }} />
+                    </div>
+                    <p className="case-inline-confirmation" role="status"><Check className="h-4 w-4" /> {blockCount === 6 ? 'Perfect tower! Pip approves.' : 'Looking good — ' + (6 - blockCount) + ' block' + (6 - blockCount === 1 ? '' : 's') + ' left until the tower is complete.'}</p>
+                  </div>
+                  <div className="case-story-grid">
+                    <div><span>THE CHALLENGE</span><p>{selectedCase.challenge}</p></div>
+                    <div><span>THE SOLUTION</span><p>{selectedCase.solution}</p></div>
+                  </div>
+                  <button type="button" className="case-modal-secondary case-modal-full-button" onClick={closeCase}>
+                    Keep this build and return to the case files <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
