@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { DreamEntry, formatOdometerDigits, validateDreamInput } from '../utils/counter';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 const INITIAL_ENTRIES: DreamEntry[] = [
   {
@@ -36,6 +37,7 @@ interface GuestbookSectionProps {
 }
 
 export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEasterEgg }) => {
+  const { play } = useSoundEffects();
   const [entries, setEntries] = useState<DreamEntry[]>(INITIAL_ENTRIES);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
@@ -55,6 +57,8 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
     }
     setFormError(null);
 
+    play('guestbook-submit');
+
     const newId = `entry-${Date.now()}`;
     const newEntry: DreamEntry = {
       id: newId,
@@ -70,6 +74,16 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
 
     setName('');
     setMessage('');
+  };
+
+  const handleSelectStamp = (stamp: string) => {
+    play('button-click');
+    setSelectedStamp(stamp);
+  };
+
+  const handleOpenEgg = () => {
+    play('easter-egg-open');
+    onOpenEasterEgg();
   };
 
   const odometerDigits = formatOdometerDigits(dreamsHarvested, 6);
@@ -148,7 +162,7 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
                     <button
                       key={stamp}
                       type="button"
-                      onClick={() => setSelectedStamp(stamp)}
+                      onClick={() => handleSelectStamp(stamp)}
                       className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center text-lg transition-all cursor-pointer ${
                         selectedStamp === stamp
                           ? 'border-rich-berry bg-soft-blush/60 shadow-sm scale-105'
@@ -254,7 +268,7 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
 
           {/* Secret Easter Egg Trigger */}
           <button
-            onClick={onOpenEasterEgg}
+            onClick={handleOpenEgg}
             className="font-bubbly text-xs text-rich-berry hover:text-plum dark:text-star-gold dark:hover:text-cream flex items-center gap-2 underline decoration-dashed transition-colors cursor-pointer"
             aria-label="Wake Pip's Secret Dream Sprite"
           >

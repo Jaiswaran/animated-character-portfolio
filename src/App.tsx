@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AnnouncementMarquee } from './components/AnnouncementMarquee';
 import { MainNavigation } from './components/MainNavigation';
 import { HeroSection } from './components/HeroSection';
@@ -16,24 +16,38 @@ import { GuestbookSection } from './components/GuestbookSection';
 import { FooterSection } from './components/FooterSection';
 import { EasterEggModal } from './components/EasterEggModal';
 import { ChaosSparkles } from './components/ChaosSparkles';
+import { CustomCursor } from './components/CustomCursor';
+import { SoundEffectsProvider } from './context/SoundEffectsContext';
+import { useLullabyAudio } from './hooks/useLullabyAudio';
 
 const THEME_STORAGE_KEY = 'pip_observatory_theme';
+const CURSOR_STORAGE_KEY = 'pip_cursor_enabled';
 
-export default function App() {
+function ObservatoryContent() {
   // Theme state persisted in localStorage
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(THEME_STORAGE_KEY);
       if (saved === 'dark') return true;
       if (saved === 'light') return false;
-      // Default to cream light mode matching Stitch designs
       return false;
     }
     return false;
   });
 
+  // Custom Cursor state persisted in localStorage (default enabled on desktop)
+  const [isCursorEnabled, setIsCursorEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(CURSOR_STORAGE_KEY);
+      if (saved === 'false') return false;
+      return true;
+    }
+    return true;
+  });
+
   // Start muted by default as requested in Phase 2
-  const [isMuted, setIsMuted] = useState(true);
+  const lullaby = useLullabyAudio(true);
+
   const [isChaosMode, setIsChaosMode] = useState(false);
   const [isEasterEggOpen, setIsEasterEggOpen] = useState(false);
 
@@ -52,26 +66,47 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const handleToggleMute = () => {
-    setIsMuted((prev) => !prev);
-  };
+  const handleToggleCursor = useCallback(() => {
+    setIsCursorEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(CURSOR_STORAGE_KEY, String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleToggleLullaby = useCallback(() => {
+    if (!lullaby.isPlaying) {
+      lullaby.setMuted(false);
+      lullaby.play();
+    } else {
+      lullaby.setMuted(!lullaby.isMuted);
+    }
+  }, [lullaby]);
 
   return (
     <div className="min-h-screen bg-cream text-warm-brown antialiased dark:bg-plum-dark dark:text-cream selection:bg-soft-blush selection:text-plum transition-colors duration-300">
+      {/* Magical Celestial Custom Cursor */}
+      <CustomCursor enabled={isCursorEnabled} />
+
       {/* Chaos Mode Particle Canvas */}
       <ChaosSparkles isActive={isChaosMode} />
 
       {/* Top Announcement Bar */}
       <AnnouncementMarquee />
 
-      {/* Navigation Header */}
+      {/* Navigation Header with Lullaby, SFX, Cursor, Chaos, and Theme controls */}
       <MainNavigation
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
-        isMuted={isMuted}
-        onToggleMute={handleToggleMute}
+        isLullabyMuted={lullaby.isMuted}
+        isLullabyPlaying={lullaby.isPlaying}
+        onToggleLullaby={handleToggleLullaby}
         isChaosMode={isChaosMode}
         onToggleChaosMode={() => setIsChaosMode((prev) => !prev)}
+        isCursorEnabled={isCursorEnabled}
+        onToggleCursor={handleToggleCursor}
       />
 
       {/* Main Observatory Content */}
@@ -83,10 +118,7 @@ export default function App() {
         <AboutSection />
 
         {/* 3. Project Showcase I: Lullaby Lab with Web Audio API Synthesizer */}
-        <LullabyLabSection
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-        />
+        <LullabyLabSection lullaby={lullaby} />
 
         {/* 4. Project Showcase II: Nightlight Sanctuary with live glow and day/night preview */}
         <NightlightSection />
@@ -110,5 +142,13 @@ export default function App() {
         onClose={() => setIsEasterEggOpen(false)}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <SoundEffectsProvider>
+      <ObservatoryContent />
+    </SoundEffectsProvider>
   );
 }

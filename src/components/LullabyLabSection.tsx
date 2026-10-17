@@ -3,109 +3,124 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Volume2, VolumeX, Play, Pause, Square, RotateCw } from 'lucide-react';
-import {
-  MusicBoxSynthesizer,
-  MELODY_PATTERNS,
-} from '../utils/audioSynthesizer';
+import { MELODY_PATTERNS } from '../utils/audioSynthesizer';
 import { getTempoLabel } from '../utils/lullaby';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 const PIP_LULLABY_BOX_FALLBACK =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCIBVXnFXJnjntUvPP1v6XekDoyi3xTXGmh7TEWMNQyMTdhZ3KGyG4bEdcGYryjcMBqlCynfm0hfpluvWPfnwYvMZ7PMxr8pnKVWJr3zOD4u96sK_Dh_BVeP-yRLSFnDOSB4fVNDBzjVmjdV873qV802fQuX8cOOnd64LEbE5lNl_IxMrcOVA84ANSVpu-Re56F3QVGuzfOSbcHpRQCV6rlg2j1kxioj-R6__sqUVFhGBVSqiF2HzUMyh_DlR2CltzdUA';
 
-interface LullabyLabSectionProps {
+export interface LullabyControls {
+  isPlaying: boolean;
   isMuted: boolean;
-  onToggleMute: () => void;
+  setMuted: (muted: boolean) => void;
+  play: () => void;
+  pause: () => void;
+  stop: () => void;
+  windUp: (amount?: number) => number;
+  windup: number;
+  activePatternIndex: number;
+  setPattern: (index: number) => void;
+  tempo: number;
+  setTempo: (tempo: number) => void;
+  resonance: number;
+  setResonance: (res: number) => void;
+  activeNote: string | null;
+  elapsedSeconds: number;
+  totalDuration: number;
 }
 
-export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
-  isMuted,
-  onToggleMute,
-}) => {
-  const synthRef = useRef<MusicBoxSynthesizer | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [activePatternIndex, setActivePatternIndex] = useState(0);
-  const [tempo, setTempo] = useState(42);
-  const [windupTime, setWindupTime] = useState(100);
-  const [activeNote, setActiveNote] = useState<string | null>(null);
+interface LullabyLabSectionProps {
+  lullaby: LullabyControls;
+}
+
+export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby }) => {
+  const { play: playSfx } = useSoundEffects();
   const [keyRotated, setKeyRotated] = useState(false);
 
-  // Initialize synthesizer lazily
-  useEffect(() => {
-    const synth = new MusicBoxSynthesizer();
-    synth.setMuted(isMuted);
-    synth.setOnNote((note) => {
-      setActiveNote(note);
-      setTimeout(() => setActiveNote(null), 400);
-    });
-    synthRef.current = synth;
+  const {
+    isPlaying,
+    isMuted,
+    setMuted,
+    play,
+    pause,
+    stop,
+    windUp,
+    windup,
+    activePatternIndex,
+    setPattern,
+    tempo,
+    setTempo,
+    resonance,
+    setResonance,
+    activeNote,
+    elapsedSeconds,
+    totalDuration,
+  } = lullaby;
 
-    return () => {
-      synth.destroy();
-      synthRef.current = null;
-    };
-  }, []);
-
-  // Sync mute state
-  useEffect(() => {
-    if (synthRef.current) {
-      synthRef.current.setMuted(isMuted);
-    }
-  }, [isMuted]);
+  const currentPattern = MELODY_PATTERNS[activePatternIndex];
 
   // Handle Play
   const handlePlay = () => {
-    if (!synthRef.current) return;
-    synthRef.current.play();
-    setIsPlaying(true);
+    playSfx('button-click');
+    setMuted(false);
+    play();
   };
 
   // Handle Pause
   const handlePause = () => {
-    if (!synthRef.current) return;
-    synthRef.current.pause();
-    setIsPlaying(false);
+    playSfx('button-click');
+    pause();
   };
 
   // Handle Stop
   const handleStop = () => {
-    if (!synthRef.current) return;
-    synthRef.current.stop();
-    setIsPlaying(false);
-    setActiveNote(null);
+    playSfx('button-click');
+    stop();
+  };
+
+  // Handle Master Mute Toggle
+  const handleToggleMute = () => {
+    playSfx('button-click');
+    setMuted(!isMuted);
   };
 
   // Handle Tune Selection
   const handleSelectTune = (index: number) => {
-    setActivePatternIndex(index);
-    if (synthRef.current) {
-      synthRef.current.setPattern(index);
-      setTempo(MELODY_PATTERNS[index].bpm);
-    }
+    playSfx('tune-select');
+    setPattern(index);
   };
 
   // Handle Tempo Change
   const handleTempoChange = (newTempo: number) => {
     setTempo(newTempo);
-    if (synthRef.current) {
-      synthRef.current.setTempo(newTempo);
-    }
+  };
+
+  // Handle Resonance Change
+  const handleResonanceChange = (newRes: number) => {
+    setResonance(newRes);
   };
 
   // Handle Wind Up Key (+25%)
   const handleWindUp = () => {
-    setWindupTime((prev) => Math.min(100, prev + 25));
+    playSfx('wind-key');
+    windUp(25);
     setKeyRotated(true);
     setTimeout(() => setKeyRotated(false), 500);
 
-    // If currently stopped, play automatically after gesture
-    if (!isPlaying && synthRef.current) {
-      handlePlay();
+    // If currently stopped, auto-start playback
+    if (!isPlaying) {
+      setMuted(false);
+      play();
     }
   };
 
-  const currentPattern = MELODY_PATTERNS[activePatternIndex];
+  // Calculate progress %
+  const progressPercent = totalDuration > 0
+    ? Math.min(100, Math.round((elapsedSeconds / totalDuration) * 100))
+    : 0;
 
   return (
     <section
@@ -133,14 +148,14 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
             <span
               className={`absolute text-rich-berry dark:text-star-gold font-bold text-xl opacity-0 ${
-                isPlaying ? 'animate-sparkle-note' : ''
+                isPlaying && !isMuted ? 'animate-sparkle-note' : ''
               } top-1/2 left-1/3`}
             >
               ♪
             </span>
             <span
               className={`absolute text-soft-blush font-bold text-2xl opacity-0 ${
-                isPlaying ? 'animate-sparkle-note' : ''
+                isPlaying && !isMuted ? 'animate-sparkle-note' : ''
               } top-1/3 left-1/2`}
               style={{ animationDelay: '1.2s' }}
             >
@@ -148,7 +163,7 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
             </span>
             <span
               className={`absolute text-dream-lavender font-bold text-lg opacity-0 ${
-                isPlaying ? 'animate-sparkle-note' : ''
+                isPlaying && !isMuted ? 'animate-sparkle-note' : ''
               } top-2/3 left-2/5`}
               style={{ animationDelay: '0.7s' }}
             >
@@ -174,10 +189,13 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                 </div>
 
                 {/* Wind-up key spinning indicator */}
-                <div
-                  className={`absolute -bottom-4 right-6 bg-star-gold border-2 border-warm-brown text-warm-brown px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-md ${
+                <button
+                  onClick={handleWindUp}
+                  className={`absolute -bottom-4 right-6 bg-star-gold hover:bg-amber-300 border-2 border-warm-brown text-warm-brown px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-md cursor-pointer transition-all active:scale-95 ${
                     isPlaying ? 'animate-bounce' : ''
                   }`}
+                  aria-label="Wind up music box spring (+25%)"
+                  title="Click to wind up spring"
                 >
                   <span
                     className={`text-base inline-block transition-transform duration-500 ${
@@ -188,9 +206,9 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                     🔑
                   </span>
                   <span className="font-bubbly text-xs font-bold">
-                    Key: Wound {windupTime}%
+                    Key: Wound {windup}%
                   </span>
-                </div>
+                </button>
 
                 {/* Harmonizing Badge & Note Live Chime */}
                 {isPlaying && (
@@ -217,7 +235,7 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
 
                   {/* Visible Master Mute Switch */}
                   <button
-                    onClick={onToggleMute}
+                    onClick={handleToggleMute}
                     aria-label={isMuted ? 'Unmute music box audio' : 'Mute music box audio'}
                     aria-pressed={!isMuted}
                     className={`px-3.5 py-2 rounded-2xl border-2 flex items-center gap-2 font-bubbly text-xs font-bold transition-all cursor-pointer ${
@@ -240,10 +258,11 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                   </button>
                 </div>
 
+                {/* Playback progress bar */}
                 <div className="w-full bg-cream dark:bg-plum-dark h-2 rounded-full mt-3 overflow-hidden border border-rich-berry/20">
                   <div
                     className="bg-rich-berry dark:bg-star-gold h-full transition-all duration-300"
-                    style={{ width: isPlaying ? '65%' : '20%' }}
+                    style={{ width: isPlaying ? `${Math.max(10, progressPercent)}%` : '0%' }}
                   />
                 </div>
               </div>
@@ -262,7 +281,7 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                         onClick={() => handleSelectTune(index)}
                         className={`p-3 rounded-2xl border-2 font-bubbly text-xs text-left transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-rich-berry bg-rich-berry text-white shadow-sm'
+                            ? 'border-rich-berry bg-rich-berry text-white shadow-sm ring-2 ring-rich-berry/20'
                             : 'border-rich-berry/30 bg-cream/70 dark:bg-plum-dark hover:border-rich-berry text-warm-brown dark:text-cream'
                         }`}
                       >
@@ -350,14 +369,24 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                     className="w-full accent-rich-berry dark:accent-star-gold cursor-pointer"
                   />
                 </div>
+
                 <div>
                   <div className="flex justify-between mb-1">
                     <span>Chime Resonance: <strong>Pure Brass &amp; Velvet Envelope</strong></span>
-                    <span className="text-rich-berry dark:text-star-gold font-semibold">94%</span>
+                    <span className="text-rich-berry dark:text-star-gold font-semibold">
+                      {Math.round(resonance * 100)}%
+                    </span>
                   </div>
-                  <div className="h-1.5 w-full bg-rich-berry/10 dark:bg-star-gold/10 rounded-full overflow-hidden">
-                    <div className="bg-rich-berry dark:bg-star-gold h-full w-[94%]" />
-                  </div>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={1.0}
+                    step={0.01}
+                    value={resonance}
+                    onChange={(e) => handleResonanceChange(Number(e.target.value))}
+                    aria-label="Chime resonance slider"
+                    className="w-full accent-rich-berry dark:accent-star-gold cursor-pointer"
+                  />
                 </div>
               </div>
             </div>

@@ -7,11 +7,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, CheckCircle2, Compass } from 'lucide-react';
 import { DELIVERY_WAYPOINTS } from '../utils/delivery';
 import { DeliveryStatus, calculateProgress, getDeliveryMessage } from '../utils/routePath';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 // Approximate normalized progress along the SVG path for the 3 destinations
 const WAYPOINT_PROGRESS = [0, 0.52, 1.0];
 
 export const DreamDeliverySection: React.FC = () => {
+  const { play } = useSoundEffects();
   const pathRef = useRef<SVGPathElement | null>(null);
   const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(1);
   const [status, setStatus] = useState<DeliveryStatus>('idle');
@@ -39,6 +41,7 @@ export const DreamDeliverySection: React.FC = () => {
 
   // Launch Delivery Animation
   const startDelivery = (targetIndex: number) => {
+    play('dream-dispatch');
     setSelectedDestinationIndex(targetIndex);
     const targetProgress = WAYPOINT_PROGRESS[targetIndex];
 
@@ -83,7 +86,6 @@ export const DreamDeliverySection: React.FC = () => {
 
   // Handle "Deliver a Dream" main button click
   const handleDeliverClick = () => {
-    // If already delivered to this one, cycle to next
     const nextIndex = (selectedDestinationIndex + 1) % DELIVERY_WAYPOINTS.length;
     startDelivery(nextIndex);
   };

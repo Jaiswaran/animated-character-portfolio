@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { X, Sparkles, Shield, Heart } from 'lucide-react';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface EasterEggModalProps {
   isOpen: boolean;
@@ -12,9 +13,15 @@ interface EasterEggModalProps {
 }
 
 export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose }) => {
+  const { play } = useSoundEffects();
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const handleClose = () => {
+    play('easter-egg-close');
+    onClose();
+  };
 
   // Keyboard accessibility: ESC key handler & focus trap
   useEffect(() => {
@@ -25,7 +32,7 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
@@ -33,7 +40,7 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   // Mini starry burst celebration on canvas
   useEffect(() => {
@@ -98,7 +105,7 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
       aria-modal="true"
       aria-labelledby="easter-egg-title"
       className="fixed inset-0 z-50 bg-plum/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         ref={modalRef}
@@ -114,7 +121,7 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
 
         {/* Close Button with ESC key label */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           aria-label="Close secret dialog (Press Escape)"
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-soft-blush/60 dark:bg-plum-dark text-warm-brown dark:text-cream font-bold text-sm flex items-center justify-center hover:bg-soft-blush transition-colors cursor-pointer z-10"
         >
@@ -150,7 +157,7 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
           <div className="flex gap-2 justify-center">
             <button
               ref={closeButtonRef}
-              onClick={onClose}
+              onClick={handleClose}
               className="px-6 py-2.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5"
             >
               <Heart className="w-3.5 h-3.5 fill-current" />

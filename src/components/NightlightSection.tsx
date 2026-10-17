@@ -6,16 +6,33 @@
 import React, { useState } from 'react';
 import { Sun, Moon, ShieldCheck, Sparkles } from 'lucide-react';
 import { GLOW_OPTIONS, SLUMBER_TIMERS, GlowMode } from '../utils/nightlight';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 const PIP_LANTERN_FALLBACK =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCn5BPwRSRzfkgVPKbx9s5hXocpGDPjMIZmHZY82gBnIP51tt9T5HLkzsY95sokvCOW8PfUQ7X2hFteJ8NfXX9tQ4vm-xjeUxzsGb3HDh1BfJTHsHTTCSJjRBF7VJ7-TD45hll0TbhKvD8AIwteT2endf9EjzoCvWohPEMzYEAwaJ57T-FLCMr1CibqBeBRUudEVl-fXWH4tgE9xKhGFBdRT8rjQrU3k-u_zKw60G3i6Ueo6iInCrer9qKW9JUn6sNVQA';
 
 export const NightlightSection: React.FC = () => {
+  const { play } = useSoundEffects();
   const [activeGlow, setActiveGlow] = useState<GlowMode>('amber');
   const [activeTimer, setActiveTimer] = useState<string>('15m');
   const [isNightAmbience, setIsNightAmbience] = useState(true);
 
   const currentGlow = GLOW_OPTIONS.find((g) => g.id === activeGlow) || GLOW_OPTIONS[0];
+
+  const handleGlowSelect = (glowId: GlowMode) => {
+    play('nightlight-change');
+    setActiveGlow(glowId);
+  };
+
+  const handleTimerSelect = (timerId: string) => {
+    play('button-click');
+    setActiveTimer(timerId);
+  };
+
+  const handleAmbienceToggle = (night: boolean) => {
+    play('button-click');
+    setIsNightAmbience(night);
+  };
 
   return (
     <section
@@ -74,7 +91,7 @@ export const NightlightSection: React.FC = () => {
                     aria-label="Room ambience preview"
                   >
                     <button
-                      onClick={() => setIsNightAmbience(false)}
+                      onClick={() => handleAmbienceToggle(false)}
                       aria-pressed={!isNightAmbience}
                       className={`px-3 py-1 rounded-full text-xs font-bubbly font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                         !isNightAmbience
@@ -87,7 +104,7 @@ export const NightlightSection: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={() => setIsNightAmbience(true)}
+                      onClick={() => handleAmbienceToggle(true)}
                       aria-pressed={isNightAmbience}
                       className={`px-3 py-1 rounded-full text-xs font-bubbly font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                         isNightAmbience
@@ -163,7 +180,7 @@ export const NightlightSection: React.FC = () => {
                   return (
                     <button
                       key={opt.id}
-                      onClick={() => setActiveGlow(opt.id)}
+                      onClick={() => handleGlowSelect(opt.id)}
                       aria-pressed={isSelected}
                       className={`p-3.5 rounded-2xl border-2 font-bubbly text-xs flex items-center gap-3.5 transition-all cursor-pointer ${
                         isSelected
@@ -205,7 +222,7 @@ export const NightlightSection: React.FC = () => {
                     return (
                       <button
                         key={timer.id}
-                        onClick={() => setActiveTimer(timer.id)}
+                        onClick={() => handleTimerSelect(timer.id)}
                         aria-pressed={isSelected}
                         className={`px-4 py-2.5 rounded-xl font-bubbly text-xs font-semibold transition-all cursor-pointer ${
                           isSelected

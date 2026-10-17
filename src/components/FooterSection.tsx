@@ -5,12 +5,20 @@
 
 import React from 'react';
 import { Star, Sparkles } from 'lucide-react';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface FooterSectionProps {
   onOpenEasterEgg: () => void;
 }
 
 export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg }) => {
+  const { play } = useSoundEffects();
+
+  const handleStarClick = () => {
+    play('easter-egg-open');
+    onOpenEasterEgg();
+  };
+
   return (
     <footer
       className="bg-plum text-cream/80 py-12 border-t-4 border-rich-berry text-xs font-bubbly relative"
@@ -40,10 +48,10 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg })
           </div>
         </div>
 
-        {/* Constellation of Decorative Stars for Future Secret Interaction */}
+        {/* Constellation of Decorative Stars for Secret Interaction */}
         <div className="flex items-center justify-center gap-3 py-2 text-star-gold/60 text-sm select-none">
           <button
-            onClick={onOpenEasterEgg}
+            onClick={handleStarClick}
             className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
             aria-label="Secret constellation star 1"
           >
@@ -51,7 +59,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg })
           </button>
           <span>•</span>
           <button
-            onClick={onOpenEasterEgg}
+            onClick={handleStarClick}
             className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
             aria-label="Secret constellation star 2"
           >
@@ -59,7 +67,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg })
           </button>
           <span>•</span>
           <button
-            onClick={onOpenEasterEgg}
+            onClick={handleStarClick}
             className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
             aria-label="Secret constellation star 3"
           >
@@ -67,7 +75,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg })
           </button>
           <span>•</span>
           <button
-            onClick={onOpenEasterEgg}
+            onClick={handleStarClick}
             className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
             aria-label="Secret constellation star 4"
           >
@@ -75,7 +83,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg })
           </button>
           <span>•</span>
           <button
-            onClick={onOpenEasterEgg}
+            onClick={handleStarClick}
             className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
             aria-label="Secret constellation star 5"
           >

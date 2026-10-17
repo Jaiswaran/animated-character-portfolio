@@ -6,11 +6,10 @@
 import React, { useState, useRef } from 'react';
 import { Sparkles, ArrowDown } from 'lucide-react';
 import { calculateTilt, TiltValues } from '../utils/tilt';
-
-const PIP_AVATAR_FALLBACK =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAgOGoA_n5Kntd9bmaqk1LBUmKv-GEmZMu8zRozn6HhFxT3jzHpE1ldX5zXVtYSxMP5Em5qbAAT2P_p9lQJbed-yooON4bj-lR0_Eb7JOkTtN0dAMsp93VmPCoDBsVkXAhphHg5aU11bcvX6_TrFeXiS1gEbQSrAlWDRiGRCroYIv6OLaR5yTuoRvgJFCGYCtxRKTK0xULhmmwcNc8qT6cKznueps8wxssgOUexgr7s_P5F36-hTTYuRj5bliKfJYx2Qg';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 export const HeroSection: React.FC = () => {
+  const { play } = useSoundEffects();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState<TiltValues>({ rotateX: 0, rotateY: 0 });
   const [isHovered, setIsHovered] = useState(false);
@@ -30,6 +29,7 @@ export const HeroSection: React.FC = () => {
   };
 
   const handleTouch = () => {
+    play('button-click');
     setTouchBounce(true);
     setTimeout(() => setTouchBounce(false), 600);
   };
@@ -117,6 +117,7 @@ export const HeroSection: React.FC = () => {
             <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3 pt-2">
               <a
                 href="#lullaby"
+                onClick={() => play('button-click')}
                 className="w-full sm:w-auto px-6 sm:px-7 py-3 sm:py-3.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 active:scale-98"
               >
                 <span>Explore My Dream Lab</span>
@@ -126,6 +127,7 @@ export const HeroSection: React.FC = () => {
               </a>
               <a
                 href="#map"
+                onClick={() => play('button-click')}
                 className="w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3.5 rounded-2xl bg-white dark:bg-plum text-warm-brown dark:text-star-gold hover:bg-soft-blush/30 font-bubbly text-sm sm:text-base font-semibold border-2 border-rich-berry/20 shadow-sm hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 active:scale-98"
               >
                 <span>Follow the Dream Trail</span>
@@ -165,9 +167,6 @@ export const HeroSection: React.FC = () => {
                 <div className="overflow-hidden rounded-[30px] sm:rounded-[38px] relative bg-gradient-to-b from-cream to-soft-blush/30">
                   <img
                     src="/assets/pip_avatar_cloud.png"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = PIP_AVATAR_FALLBACK;
-                    }}
                     alt="Pip the adorable skull baby in star nightcap and peach heart pajamas waving from atop a fluffy cloud"
                     className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700 animate-floating"
                   />
@@ -204,6 +203,7 @@ export const HeroSection: React.FC = () => {
         <div className="pt-2 pb-2 flex justify-center">
           <a
             href="#about"
+            onClick={() => play('nav-click')}
             className="inline-flex items-center gap-1.5 text-xs font-bubbly font-semibold text-warm-brown/70 dark:text-cream/70 hover:text-rich-berry dark:hover:text-star-gold tracking-wide transition-colors animate-bounce"
           >
             <span>Scroll to enter the observatory</span>

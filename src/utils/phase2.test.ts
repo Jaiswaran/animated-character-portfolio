@@ -5,9 +5,16 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { NOTE_FREQUENCIES, MELODY_PATTERNS } from './audioSynthesizer.ts';
+import {
+  NOTE_FREQUENCIES,
+  MELODY_PATTERNS,
+  calculateRealDurationSeconds,
+  getPatternTotalBeats,
+} from './audioSynthesizer.ts';
 import { calculateProgress, getDeliveryMessage } from './routePath.ts';
 import { calculateTilt } from './tilt.ts';
+import { WebAudioSoundEffects } from './soundEffects.ts';
+import type { SoundEffectType } from './soundEffects.ts';
 
 test('audio: music box frequencies are defined and positive', () => {
   assert.equal(NOTE_FREQUENCIES.C5, 523.25);
@@ -25,6 +32,41 @@ test('audio: melody patterns contain 3 gentle lullabies with notes', () => {
     assert.ok(pattern.notes.length > 5);
     assert.ok(pattern.bpm >= 30 && pattern.bpm <= 60);
   }
+});
+
+test('audio: calculateRealDurationSeconds returns valid positive durations', () => {
+  const pattern = MELODY_PATTERNS[0];
+  const beats = getPatternTotalBeats(pattern);
+  assert.ok(beats > 10);
+  const dur = calculateRealDurationSeconds(pattern, 42);
+  assert.ok(dur > 15 && dur < 60);
+});
+
+test('soundEffects: WebAudioSoundEffects supports mute toggling and safe destruction in non-DOM environments', () => {
+  const sfx = new WebAudioSoundEffects(true);
+  assert.equal(sfx.isMuted(), true);
+  sfx.setMuted(false);
+  assert.equal(sfx.isMuted(), false);
+
+  // Calling play in Node environment does not crash
+  const sampleTypes: SoundEffectType[] = [
+    'button-click',
+    'nav-click',
+    'tune-select',
+    'wind-key',
+    'nightlight-change',
+    'dream-dispatch',
+    'easter-egg-open',
+    'easter-egg-close',
+    'guestbook-submit',
+    'chaos-toggle',
+  ];
+
+  sampleTypes.forEach((t) => {
+    assert.doesNotThrow(() => sfx.play(t));
+  });
+
+  assert.doesNotThrow(() => sfx.destroy());
 });
 
 test('routePath: calculateProgress bounds between 0 and 1', () => {
