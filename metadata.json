@@ -1,0 +1,6 @@
+{
+  "name": "Pip's Midnight Observatory",
+  "description": "Pip's Midnight Observatory - haX.baby Hackathon Track 1: Pip the Skull Baby, Junior Dream Engineer at the Midnight Nursery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,193 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { GLOW_OPTIONS, SLUMBER_TIMERS, GlowMode } from '../utils/nightlight';
+
+const PIP_LANTERN_FALLBACK =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuCn5BPwRSRzfkgVPKbx9s5hXocpGDPjMIZmHZY82gBnIP51tt9T5HLkzsY95sokvCOW8PfUQ7X2hFteJ8NfXX9tQ4vm-xjeUxzsGb3HDh1BfJTHsHTTCSJjRBF7VJ7-TD45hll0TbhKvD8AIwteT2endf9EjzoCvWohPEMzYEAwaJ57T-FLCMr1CibqBeBRUudEVl-fXWH4tgE9xKhGFBdRT8rjQrU3k-u_zKw60G3i6Ueo6iInCrer9qKW9JUn6sNVQA';
+
+export const NightlightSection: React.FC = () => {
+  const [activeGlow, setActiveGlow] = useState<GlowMode>('amber');
+  const [activeTimer, setActiveTimer] = useState<string>('15m');
+  const [isDayAmbiance, setIsDayAmbiance] = useState(false);
+
+  const currentGlow = GLOW_OPTIONS.find((g) => g.id === activeGlow) || GLOW_OPTIONS[0];
+
+  return (
+    <section
+      id="nightlight"
+      className="py-16 md:py-20 bg-soft-blush/20 dark:bg-plum/40 border-y border-rich-berry/10 relative"
+      aria-label="Nightlight Sanctuary"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section Header */}
+        <div className="text-center max-w-2xl mx-auto mb-12 md:mb-14">
+          <span className="font-bubbly text-xs tracking-widest uppercase text-rich-berry dark:text-star-gold bg-soft-blush dark:bg-plum px-3.5 py-1 rounded-full border border-rich-berry/20">
+            Luminescent Defense System
+          </span>
+          <h2 className="font-serif-headline text-3xl sm:text-5xl font-bold text-plum dark:text-star-gold mt-3">
+            Nightlight Sanctuary
+          </h2>
+          <p className="font-bubbly text-warm-brown/80 dark:text-cream/70 text-sm sm:text-base mt-2">
+            Equipped with Pip’s official glowing crescent moon dream lantern to banish shadows and soothe restless thoughts.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          {/* Lantern Visual Showcase with Dynamic Glow */}
+          <div className="lg:col-span-6 flex justify-center">
+            <div className="relative w-full max-w-md flex justify-center">
+              {/* Dynamic Color Radiance Disc */}
+              <div
+                className="absolute inset-0 rounded-full blur-3xl opacity-60 transition-colors duration-700 pointer-events-none"
+                style={{ backgroundColor: currentGlow.hex }}
+                aria-hidden="true"
+              />
+
+              <div className="relative z-10 p-4 sm:p-5 bg-white dark:bg-plum rounded-[40px] border-4 border-rich-berry/20 shadow-2xl w-full">
+                {/* Day / Night mini toggle */}
+                <div className="flex items-center justify-between pb-3 px-2 border-b border-rich-berry/10 dark:border-white/10 mb-3">
+                  <span className="font-bubbly text-xs font-semibold text-rich-berry dark:text-star-gold">
+                    Invention II: Nightlight Collection
+                  </span>
+                  <div className="flex items-center gap-1 bg-cream dark:bg-plum-dark p-0.5 rounded-full border border-rich-berry/20">
+                    <button
+                      onClick={() => setIsDayAmbiance(true)}
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bubbly transition-colors cursor-pointer ${
+                        isDayAmbiance
+                          ? 'bg-star-gold text-plum font-bold shadow-sm'
+                          : 'text-warm-brown/70 dark:text-cream/70'
+                      }`}
+                    >
+                      ☀️ Day
+                    </button>
+                    <button
+                      onClick={() => setIsDayAmbiance(false)}
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bubbly transition-colors cursor-pointer ${
+                        !isDayAmbiance
+                          ? 'bg-rich-berry text-white font-bold shadow-sm'
+                          : 'text-warm-brown/70 dark:text-cream/70'
+                      }`}
+                    >
+                      🌙 Night
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  className={`overflow-hidden rounded-[32px] p-2 transition-colors duration-500 ${
+                    isDayAmbiance ? 'bg-cream' : 'bg-plum-dark/90'
+                  }`}
+                >
+                  <img
+                    src="/assets/pip_dream_lantern.png"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = PIP_LANTERN_FALLBACK;
+                    }}
+                    alt="Pip's official dream lantern featuring a smiling crescent moon glowing warmly with carved star accents"
+                    className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700 drop-shadow-lg"
+                  />
+                </div>
+
+                {/* Status Pill on Lantern */}
+                <div className="mt-3.5 flex items-center justify-between px-3 py-1 font-bubbly text-xs text-warm-brown dark:text-cream">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full animate-ping ${currentGlow.badgeDot}`}
+                    />
+                    <span>
+                      Beam: <b>{currentGlow.name}</b>
+                    </span>
+                  </span>
+                  <span>Battery: Infinite Stardust</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Glow Selector & Sleep Timer Interactive Deck */}
+          <div className="lg:col-span-6 space-y-6">
+            <div className="bg-white dark:bg-plum rounded-3xl p-6 sm:p-8 border-2 border-rich-berry/20 shadow-md">
+              <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-star-gold mb-2">
+                Dream Lantern Radiance Controller
+              </h3>
+              <p className="font-bubbly text-xs text-warm-brown/80 dark:text-cream/70 mb-6">
+                Change hue spectrum according to sleeper anxiety levels:
+              </p>
+
+              {/* Color Palette Modes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {GLOW_OPTIONS.map((opt) => {
+                  const isSelected = activeGlow === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setActiveGlow(opt.id)}
+                      className={`p-3 rounded-2xl border-2 font-bubbly text-xs flex items-center gap-3 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-star-gold bg-star-gold/20 shadow-sm'
+                          : 'border-rich-berry/20 hover:border-rich-berry/50 bg-cream/50 dark:bg-plum-dark'
+                      }`}
+                    >
+                      <span
+                        className="w-6 h-6 rounded-full shadow-sm border border-warm-brown/30 flex-shrink-0"
+                        style={{ backgroundColor: opt.hex }}
+                        aria-hidden="true"
+                      />
+                      <div className="text-left">
+                        <span className="block font-bold text-warm-brown dark:text-cream">
+                          {opt.name}
+                        </span>
+                        <span className="text-[10px] text-warm-brown/60 dark:text-cream/60">
+                          {opt.subtitle}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Automatic Slumber Timer Presets */}
+              <div className="border-t border-rich-berry/15 pt-5 space-y-3">
+                <span className="block font-bubbly text-xs uppercase text-rich-berry dark:text-star-gold font-bold">
+                  Automatic Slumber Timer
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {SLUMBER_TIMERS.map((timer) => {
+                    const isSelected = activeTimer === timer.id;
+                    return (
+                      <button
+                        key={timer.id}
+                        onClick={() => setActiveTimer(timer.id)}
+                        className={`px-4 py-2.5 rounded-xl font-bubbly text-xs font-semibold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-rich-berry text-white shadow-sm'
+                            : 'bg-cream dark:bg-plum-dark border border-rich-berry/20 text-warm-brown dark:text-cream hover:bg-soft-blush/30'
+                        }`}
+                      >
+                        <span>{timer.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Secret Safety Stamp */}
+              <div className="mt-6 p-3.5 bg-star-gold/20 rounded-2xl flex items-center gap-3 border border-star-gold/40 text-xs font-bubbly">
+                <span className="text-xl" aria-hidden="true">
+                  🛡️
+                </span>
+                <span className="text-warm-brown dark:text-cream leading-relaxed">
+                  <strong>Nightmare Protection Active:</strong> High-grade starlight filament neutralizes bad dreams within a 15-meter radius.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
