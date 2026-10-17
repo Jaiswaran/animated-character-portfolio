@@ -11,7 +11,6 @@ import {
   Moon,
   Play,
   RotateCw,
-  Send,
   Sparkles,
   Sun,
   Volume2,
@@ -19,118 +18,112 @@ import {
 } from 'lucide-react';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 import { LullabyControls } from './LullabyLabSection';
+import { MELODY_PATTERNS } from '../utils/audioSynthesizer';
 import { GLOW_OPTIONS, GlowMode } from '../utils/nightlight';
 import { DELIVERY_WAYPOINTS } from '../utils/delivery';
+import { DreamDeliverySection } from './DreamDeliverySection';
 
-type CaseId = 'nightlight' | 'routes' | 'toys';
-type CaseFilter = 'all' | 'comfort' | 'journeys' | 'playroom';
+type ProjectId = 'nightlight' | 'routes' | 'toys';
+type ToyBuild = 'tower' | 'rocket' | 'house';
 
-interface CaseStudy {
-  id: CaseId;
+interface ProjectCase {
+  id: ProjectId;
   number: string;
-  category: Exclude<CaseFilter, 'all'>;
-  classification: string;
+  label: string;
   title: string;
   tagline: string;
   description: string;
   challenge: string;
   solution: string;
-  details: string[];
+  capabilities: string[];
   accent: string;
-  cta: string;
+  action: string;
 }
 
-const CASE_STUDIES: CaseStudy[] = [
+const PROJECTS: ProjectCase[] = [
   {
     id: 'nightlight',
     number: '01',
-    category: 'comfort',
-    classification: 'AMBIENT COMFORT',
+    label: 'THE COMFORT ENGINE',
     title: 'Nightlight Collection',
-    tagline: 'A little light. A much softer night.',
-    description: 'A mood-responsive dream lantern that turns a bedtime routine into a tiny, calming ritual.',
-    challenge: 'Dark rooms can feel intimidating when it is time to sleep.',
-    solution: 'A live glow palette and day/night previews let the room shift from cosy sunset to quiet starlight.',
-    details: ['4 live colour moods', 'Day / night ambience', 'Shared state with the full sanctuary'],
+    tagline: 'Make the dark feel kind.',
+    description: 'A mood-responsive dream lantern with living colour, a softer night scene, and a real music-box soundscape.',
+    challenge: 'Bedtime should feel safe, personal, and gently magical—not like switching off a room.',
+    solution: 'Change the lantern’s colour and ambience, then tune a soft synthesized lullaby with a wind-up key.',
+    capabilities: ['4 reactive light moods', 'Day / night scenes', 'Live Web Audio music box'],
     accent: '#d9c8ef',
-    cta: 'Explore the collection',
+    action: 'Enter the sanctuary',
   },
   {
     id: 'routes',
     number: '02',
-    category: 'journeys',
-    classification: 'STORY-DRIVEN MOTION',
+    label: 'THE DREAM COURIER',
     title: 'Dream Delivery Routes',
-    tagline: 'Every dream deserves a safe landing.',
-    description: 'A star-powered courier route where destinations, progress, and dispatch states feel alive.',
-    challenge: 'A route map should feel like a journey, not a static diagram.',
-    solution: 'A curved SVG flight path, named dream ports, clear dispatch feedback, and reduced-motion support create a readable little story.',
-    details: ['3 illustrated destinations', 'Live dispatch integration', 'Smooth path animation'],
+    tagline: 'A star on a mission.',
+    description: 'A tiny night courier follows a glowing flight path to deliver the right dream to the right rooftop.',
+    challenge: 'A map is easier to love when you can see a journey unfold instead of reading a static diagram.',
+    solution: 'Choose a dream port, launch the courier, and follow the animated star while delivery status updates in real time.',
+    capabilities: ['3 interactive dream ports', 'Animated SVG flight path', 'Live delivery feedback'],
     accent: '#f3cf75',
-    cta: 'Explore the route',
+    action: 'Launch a dream',
   },
   {
     id: 'toys',
     number: '03',
-    category: 'playroom',
-    classification: 'PLAYFUL INTERACTION',
+    label: 'THE MIDNIGHT PLAYROOM',
     title: 'Rattle & Block Toys',
-    tagline: 'Small blocks. Big midnight ideas.',
-    description: 'A tiny playroom where every click adds a piece, changes the palette, and builds a new bedtime toy.',
-    challenge: 'A showcase should reward curiosity instead of asking visitors to only look.',
-    solution: 'A hands-on block builder gives visitors a simple, immediate interaction with satisfying visual feedback.',
-    details: ['Live block stacking', 'Three colour palettes', 'Reset and rebuild controls'],
+    tagline: 'Build a little impossible.',
+    description: 'A tactile little toy studio where colourful pieces become towers, tiny houses, or a rocket for the moon.',
+    challenge: 'The best portfolio moments invite people to play, not just admire a screenshot.',
+    solution: 'Build a toy piece by piece, change the colour story, and switch designs without leaving the page.',
+    capabilities: ['3 toy blueprints', 'Live block builder', 'Colour palette mixer'],
     accent: '#f1c9d6',
-    cta: 'Build with Pip',
+    action: 'Build something lovely',
   },
-];
-
-const FILTERS: Array<{ id: CaseFilter; label: string }> = [
-  { id: 'all', label: 'All case files' },
-  { id: 'comfort', label: 'Comfort' },
-  { id: 'journeys', label: 'Journeys' },
-  { id: 'playroom', label: 'Playroom' },
 ];
 
 const TOY_PALETTES = [
   ['#a34063', '#f3cf75', '#d9c8ef', '#7aa2f7', '#f1c9d6', '#a8d5ba'],
   ['#635b9a', '#a7c7e7', '#f4d58d', '#e8a4a4', '#9fc9b6', '#fff8f1'],
-  ['#f3cf75', '#e89ba7', '#a7c7e7', '#b7a0d8', '#9fc9b6', '#fff8f1'],
+  ['#ed9d8b', '#e8c96d', '#9fc9b6', '#b7a0d8', '#f5dbe4', '#fff8f1'],
 ];
 
 interface ProjectShowcaseSectionProps {
   lullaby: LullabyControls;
   activeGlow: GlowMode;
   onSelectGlow: (glow: GlowMode) => void;
-  onQuickDispatch: () => void;
   deliveryStatus: string;
+  onDeliveryStatusChange: (status: string) => void;
 }
 
 export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   lullaby,
   activeGlow,
   onSelectGlow,
-  onQuickDispatch,
   deliveryStatus,
+  onDeliveryStatusChange,
 }) => {
   const { play } = useSoundEffects();
-  const [activeFilter, setActiveFilter] = useState<CaseFilter>('all');
-  const [selectedCase, setSelectedCase] = useState<CaseStudy | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectCase | null>(null);
   const [isNightPreview, setIsNightPreview] = useState(true);
-  const [blockCount, setBlockCount] = useState(3);
+  const [toyCount, setToyCount] = useState(4);
+  const [toyBuild, setToyBuild] = useState<ToyBuild>('tower');
   const [toyPaletteIndex, setToyPaletteIndex] = useState(0);
-  const [activeWaypoint, setActiveWaypoint] = useState(0);
-  const [dispatchQueued, setDispatchQueued] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const currentGlow = GLOW_OPTIONS.find((glow) => glow.id === activeGlow) || GLOW_OPTIONS[0];
-  const visibleCases = CASE_STUDIES.filter((item) => activeFilter === 'all' || item.category === activeFilter);
+  const glow = GLOW_OPTIONS.find((item) => item.id === activeGlow) || GLOW_OPTIONS[0];
   const isLullabyAudible = lullaby.isPlaying && !lullaby.isMuted;
+  const toyColors = TOY_PALETTES[toyPaletteIndex];
 
-  const closeCase = () => setSelectedCase(null);
+  const openProject = (project: ProjectCase) => {
+    play('button-click');
+    setSelectedProject(project);
+  };
 
-  const toggleSoundscape = () => {
+  const closeProject = () => setSelectedProject(null);
+
+  const toggleLullaby = () => {
     play('button-click');
     if (isLullabyAudible) {
       lullaby.pause();
@@ -140,25 +133,31 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     }
   };
 
-  const chooseGlow = (glowId: GlowMode) => {
+  const selectGlow = (mode: GlowMode) => {
     play('nightlight-change');
-    onSelectGlow(glowId);
+    onSelectGlow(mode);
   };
 
-  const launchDispatch = () => {
-    if (deliveryStatus === 'dispatching') return;
-    play('dream-dispatch');
-    onQuickDispatch();
-    setDispatchQueued(true);
-  };
-
-  const addBlock = () => {
+  const addToyPiece = () => {
+    if (toyCount >= 9) return;
     play('button-click');
-    setBlockCount((count) => Math.min(6, count + 1));
+    setToyCount((count) => Math.min(9, count + 1));
+  };
+
+  const selectToyBuild = (build: ToyBuild) => {
+    play('button-click');
+    setToyBuild(build);
+  };
+
+  const resetToy = () => {
+    play('button-click');
+    setToyCount(4);
+    setToyBuild('tower');
+    setToyPaletteIndex(0);
   };
 
   useEffect(() => {
-    if (!selectedCase) return;
+    if (!selectedProject) return;
 
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
@@ -169,7 +168,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setSelectedCase(null);
+        setSelectedProject(null);
         return;
       }
 
@@ -177,10 +176,10 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       const focusable = modalRef.current.querySelectorAll<HTMLElement>(
         'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
-      if (focusable.length === 0) return;
+      if (!focusable.length) return;
+
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -197,421 +196,342 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
-  }, [selectedCase]);
+  }, [selectedProject]);
 
   const renderNightlightArtwork = (large = false) => (
     <div
-      className={'case-night-scene ' + (large ? 'case-night-scene-large' : '') + (isNightPreview ? ' is-night' : ' is-day')}
-      style={{ '--case-glow': currentGlow.hex } as React.CSSProperties}
+      className={'ultimate-lantern-scene' + (large ? ' ultimate-art-large' : '') + (isNightPreview ? ' is-night' : ' is-day')}
+      style={{ '--project-glow': glow.hex } as React.CSSProperties}
     >
-      <span className="case-scene-orb case-orb-one" aria-hidden="true" />
-      <span className="case-scene-orb case-orb-two" aria-hidden="true" />
-      <span className="case-scene-moon" aria-hidden="true">{isNightPreview ? '☾' : '☼'}</span>
+      <div className="ultimate-lantern-halo ultimate-halo-one" aria-hidden="true" />
+      <div className="ultimate-lantern-halo ultimate-halo-two" aria-hidden="true" />
+      <span className="ultimate-lantern-moon" aria-hidden="true">{isNightPreview ? '☾' : '☼'}</span>
+      <span className="ultimate-lantern-star ultimate-lantern-star-one" aria-hidden="true">✦</span>
+      <span className="ultimate-lantern-star ultimate-lantern-star-two" aria-hidden="true">✧</span>
       <img
         src="/assets/pip_dream_lantern.png"
-        alt="Pip's crescent moon dream lantern"
-        className="case-lantern-art"
-        onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
+        alt="Pip’s crescent moon dream lantern"
+        className="ultimate-lantern-image"
+        onError={(event) => { event.currentTarget.style.opacity = '0'; }}
       />
-      <span className="case-scene-caption">{isNightPreview ? 'NIGHT MODE · SOFT GLOW' : 'DAY MODE · WARM LIGHT'}</span>
+      <div className="ultimate-lantern-footer">
+        <span className="ultimate-live-dot" />
+        <span>{glow.name}</span>
+        <span className="ultimate-lantern-divider">/</span>
+        <span>{isNightPreview ? 'NIGHT GLOW' : 'DAYLIGHT'}</span>
+      </div>
     </div>
   );
 
   const renderRouteArtwork = (large = false) => (
-    <div className={'case-route-scene ' + (large ? 'case-route-scene-large' : '')}>
-      <div className="case-route-stars" aria-hidden="true">✦　·　✧　·　✦　·　✧</div>
-      <svg viewBox="0 0 520 220" role="img" aria-label="A curved starlight path joining three dream destinations">
+    <div className={'ultimate-route-art' + (large ? ' ultimate-art-large' : '')}>
+      <div className="ultimate-route-sky" aria-hidden="true">
+        <span>✦</span><span>·</span><span>✧</span><span>·</span><span>✦</span><span>·</span><span>✧</span>
+      </div>
+      <div className="ultimate-route-label ultimate-route-label-left">WHISPERING ATTIC</div>
+      <div className="ultimate-route-label ultimate-route-label-mid">LIGHTHOUSE NURSERY</div>
+      <div className="ultimate-route-label ultimate-route-label-right">CLOUD NINE SPIRE</div>
+      <svg viewBox="0 0 520 230" role="img" aria-label="A golden star moves along a curved route between three dream destinations">
         <defs>
-          <linearGradient id={large ? 'route-gradient-large' : 'route-gradient'} x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id={large ? 'ultimate-route-gradient-large' : 'ultimate-route-gradient'} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#f1c9d6" />
-            <stop offset="50%" stopColor="#d9c8ef" />
+            <stop offset="52%" stopColor="#d9c8ef" />
             <stop offset="100%" stopColor="#f3cf75" />
           </linearGradient>
         </defs>
-        <path d="M45 155 C105 30 170 45 235 115 S360 195 475 55" fill="none" stroke="rgba(255,248,241,.13)" strokeWidth="13" strokeLinecap="round" />
-        <path className="case-route-path" d="M45 155 C105 30 170 45 235 115 S360 195 475 55" fill="none" stroke={'url(#' + (large ? 'route-gradient-large' : 'route-gradient') + ')'} strokeWidth="3.5" strokeLinecap="round" strokeDasharray="8 11" />
-        {[{x:45,y:155},{x:235,y:115},{x:475,y:55}].map((point, index) => (
+        <path d="M38 145 C95 8 170 48 240 110 S365 207 482 47" fill="none" stroke="rgba(255,248,241,.1)" strokeWidth="14" strokeLinecap="round" />
+        <path d="M38 145 C95 8 170 48 240 110 S365 207 482 47" fill="none" stroke={'url(#' + (large ? 'ultimate-route-gradient-large' : 'ultimate-route-gradient') + ')'} strokeWidth="3" strokeLinecap="round" strokeDasharray="5 12" className="ultimate-flight-line" />
+        {[{x:38,y:145},{x:240,y:110},{x:482,y:47}].map((point,index) => (
           <g key={index}>
-            <circle cx={point.x} cy={point.y} r={activeWaypoint === index ? 19 : 13} fill={index === 0 ? '#a34063' : index === 1 ? '#7aa2f7' : '#f3cf75'} opacity={activeWaypoint === index ? 0.3 : 0.15} />
+            <circle cx={point.x} cy={point.y} r="19" fill={index === 0 ? '#a34063' : index === 1 ? '#9f91da' : '#f3cf75'} opacity=".15" />
             <circle cx={point.x} cy={point.y} r="7" fill={index === 0 ? '#f1c9d6' : index === 1 ? '#d9c8ef' : '#f3cf75'} stroke="#fff8f1" strokeWidth="2" />
-            <text x={point.x} y={point.y + 31} fill="#fff8f1" fontSize="11" textAnchor="middle">{['ATTIC', 'NURSERY', 'CLOUD SPIRE'][index]}</text>
           </g>
         ))}
-        <g className="case-route-star">
+        <g className="ultimate-flying-star">
           <path d="M0 -12 L3 -3 L12 0 L3 3 L0 12 L-3 3 L-12 0 L-3 -3 Z" fill="#f3cf75" />
+          <circle r="16" fill="#f3cf75" opacity=".12" />
         </g>
       </svg>
-      <span className="case-route-caption">3 DREAM PORTS · 1 VERY DEDICATED STAR</span>
+      <div className={'ultimate-flight-status' + (deliveryStatus === 'dispatching' ? ' is-moving' : '')}>
+        <span className="ultimate-live-dot" />
+        {deliveryStatus === 'dispatching' ? 'COURIER IN FLIGHT' : deliveryStatus === 'delivered' ? 'DREAM DELIVERED SAFELY' : 'ROUTES CLEAR · READY TO FLY'}
+      </div>
     </div>
   );
 
-  const renderToyArtwork = (large = false) => {
-    const colors = TOY_PALETTES[toyPaletteIndex];
-    return (
-      <div className={'case-toy-scene ' + (large ? 'case-toy-scene-large' : '')}>
-        <div className="case-toy-sticker">PIP'S PLAYROOM</div>
-        <div className="case-toy-sparkle" aria-hidden="true">✦</div>
-        <div className="case-toy-tower" aria-label={blockCount + ' blocks in the current tower'}>
-          {Array.from({ length: blockCount }, (_, index) => {
-            const blockIndex = blockCount - 1 - index;
-            return (
-              <span
-                key={blockIndex}
-                className={'case-toy-block case-toy-block-' + (blockIndex % 3)}
-                style={{ backgroundColor: colors[blockIndex % colors.length], animationDelay: (blockIndex * 55) + 'ms' }}
-              >
-                {blockIndex === 0 ? '✦' : blockIndex % 2 === 0 ? '☾' : '•'}
-              </span>
-            );
-          })}
+  const renderToyArtwork = (large = false) => (
+    <div className={'ultimate-toy-art' + (large ? ' ultimate-art-large' : '')}>
+      <div className="ultimate-toy-stamp">PIP’S PLAYROOM <span>✦</span></div>
+      <div className={'ultimate-toy-builder ultimate-build-' + toyBuild} aria-label={toyBuild + ' toy with ' + toyCount + ' pieces'}>
+        {toyBuild === 'rocket' && <div className="ultimate-rocket-nose" aria-hidden="true" />}
+        {toyBuild === 'house' && <div className="ultimate-house-roof" aria-hidden="true" />}
+        <div className="ultimate-toy-stack">
+          {Array.from({ length: toyCount }, (_, index) => (
+            <span
+              key={index}
+              className={'ultimate-toy-piece ultimate-piece-' + (index % 3)}
+              style={{
+                backgroundColor: toyColors[index % toyColors.length],
+                animationDelay: (index * 45) + 'ms',
+              }}
+            >
+              {index % 3 === 0 ? '✦' : index % 3 === 1 ? '☾' : '•'}
+            </span>
+          ))}
         </div>
-        <div className="case-toy-floor" />
-        <span className="case-toy-counter">{blockCount} / 6 BLOCKS BUILT</span>
+        {toyBuild === 'rocket' && <div className="ultimate-rocket-fins" aria-hidden="true"><i /><i /></div>}
+        {toyBuild === 'house' && <div className="ultimate-house-door" aria-hidden="true" />}
       </div>
-    );
-  };
+      <div className="ultimate-toy-floor" />
+      <div className="ultimate-toy-counter">{toyCount} / 9 PIECES · {toyBuild.toUpperCase()} BUILD</div>
+    </div>
+  );
 
   return (
     <section
       id="projects"
-      className="case-showcase-section relative overflow-hidden py-20 md:py-28"
-      aria-labelledby="case-showcase-title"
+      className="ultimate-showcase relative overflow-hidden"
+      aria-labelledby="ultimate-showcase-title"
       data-project-showcase="true"
     >
-      <div className="case-showcase-orbit case-orbit-left" aria-hidden="true" />
-      <div className="case-showcase-orbit case-orbit-right" aria-hidden="true" />
-
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="case-showcase-heading mx-auto mb-10 max-w-4xl text-center md:mb-14">
-          <div className="case-eyebrow">
+      <div className="ultimate-background-glow ultimate-background-glow-left" aria-hidden="true" />
+      <div className="ultimate-background-glow ultimate-background-glow-right" aria-hidden="true" />
+      <div className="ultimate-showcase-inner">
+        <header className="ultimate-showcase-heading">
+          <div className="ultimate-eyebrow">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            <span>PIP'S MIDNIGHT OBSERVATORY</span>
-            <span className="case-eyebrow-dot" aria-hidden="true">✦</span>
-            <span>INTERACTIVE CASE FILES</span>
+            <span>PIP’S MIDNIGHT OBSERVATORY</span>
+            <span className="ultimate-eyebrow-separator">✦</span>
+            <span>THREE WORLDS TO EXPLORE</span>
           </div>
-          <h2 id="case-showcase-title" className="case-showcase-title">
-            Tiny inventions. <span>Huge dreams.</span>
+          <h2 id="ultimate-showcase-title" className="ultimate-showcase-title">
+            Tiny inventions.<br /><span>Huge dreams.</span>
           </h2>
-          <p className="case-showcase-intro">
-            Three little worlds from Pip's workshop. Explore the thinking behind each invention, change the controls, and see what happens.
-          </p>
-          <div className="case-heading-footer">
-            <div className="case-filter-row" role="group" aria-label="Filter case studies">
-              {FILTERS.map((filter) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  onClick={() => {
-                    play('button-click');
-                    setActiveFilter(filter.id);
-                  }}
-                  aria-pressed={activeFilter === filter.id}
-                  className={'case-filter-chip' + (activeFilter === filter.id ? ' is-active' : '')}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={toggleSoundscape}
-              className="case-sound-toggle"
-              aria-pressed={isLullabyAudible}
-              aria-label={isLullabyAudible ? 'Pause the observatory lullaby' : 'Play the observatory lullaby'}
-            >
-              <span className={'case-sound-indicator' + (isLullabyAudible ? ' is-playing' : '')} aria-hidden="true">
-                <i /><i /><i /><i />
-              </span>
-              <span>{isLullabyAudible ? 'Soundscape on' : 'Try the soundscape'}</span>
-              {isLullabyAudible ? <Volume2 className="h-4 w-4" /> : <Play className="h-3.5 w-3.5" />}
-            </button>
-          </div>
-        </div>
+          <p className="ultimate-showcase-subtitle">Choose a world. Touch the details. Make a little magic.</p>
+        </header>
 
-        <div className="case-study-grid">
-          {visibleCases.map((item, index) => (
+        <div className="ultimate-project-grid">
+          {PROJECTS.map((project, index) => (
             <article
-              key={item.id}
-              className="case-study-card"
+              key={project.id}
+              className={'ultimate-project-card ultimate-project-' + project.id}
+              style={{ '--project-accent': project.accent, animationDelay: (index * 120) + 'ms' } as React.CSSProperties}
               data-project-card="true"
-              style={{ animationDelay: (index * 110) + 'ms', '--case-accent': item.accent } as React.CSSProperties}
+              aria-labelledby={'ultimate-project-title-' + project.id}
             >
-              <div className="case-card-topline">
-                <span className="case-number">{item.number} <span aria-hidden="true">/</span> 03</span>
-                <span className="case-classification">{item.classification}</span>
+              <div className="ultimate-project-meta">
+                <span className="ultimate-project-number">{project.number}<i> / 03</i></span>
+                <span className="ultimate-project-class">{project.label}</span>
               </div>
 
-              <div className="case-art-frame">
-                {item.id === 'nightlight' && (
+              <div className="ultimate-project-visual">
+                {project.id === 'nightlight' && (
                   <>
                     {renderNightlightArtwork()}
-                    <div className="case-glow-swatches" role="group" aria-label="Change nightlight colour">
-                      {GLOW_OPTIONS.map((glow) => (
-                        <button
-                          key={glow.id}
-                          type="button"
-                          className={'case-glow-swatch' + (activeGlow === glow.id ? ' is-selected' : '')}
-                          style={{ backgroundColor: glow.hex }}
-                          aria-label={'Choose ' + glow.name}
-                          aria-pressed={activeGlow === glow.id}
-                          title={glow.name}
-                          onClick={() => chooseGlow(glow.id)}
-                        />
-                      ))}
+                    <div className="ultimate-art-controls ultimate-light-controls">
+                      <div className="ultimate-daynight-switch" role="group" aria-label="Preview lighting">
+                        <button type="button" onClick={() => setIsNightPreview(false)} aria-pressed={!isNightPreview} className={!isNightPreview ? 'is-active' : ''}><Sun className="h-3.5 w-3.5" /> Day</button>
+                        <button type="button" onClick={() => setIsNightPreview(true)} aria-pressed={isNightPreview} className={isNightPreview ? 'is-active' : ''}><Moon className="h-3.5 w-3.5" /> Night</button>
+                      </div>
+                      <div className="ultimate-color-swatches" role="group" aria-label="Choose lantern glow">
+                        {GLOW_OPTIONS.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            title={item.name}
+                            aria-label={'Choose ' + item.name}
+                            aria-pressed={activeGlow === item.id}
+                            className={'ultimate-color-swatch' + (activeGlow === item.id ? ' is-selected' : '')}
+                            style={{ backgroundColor: item.hex }}
+                            onClick={() => selectGlow(item.id)}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
-                {item.id === 'routes' && (
-                  <>
-                    {renderRouteArtwork()}
-                    <div className="case-route-status">
-                      <span className={'case-status-dot' + (deliveryStatus === 'dispatching' ? ' is-moving' : '')} />
-                      <span>{deliveryStatus === 'dispatching' ? 'STAR COURIER IN FLIGHT' : deliveryStatus === 'delivered' ? 'DREAM DELIVERED' : 'ALL DREAM PORTS READY'}</span>
-                    </div>
-                  </>
-                )}
-                {item.id === 'toys' && (
+                {project.id === 'routes' && renderRouteArtwork()}
+                {project.id === 'toys' && (
                   <>
                     {renderToyArtwork()}
-                    <button
-                      type="button"
-                      className="case-toy-quick-add"
-                      onClick={addBlock}
-                      disabled={blockCount >= 6}
-                      aria-label="Add a block to the preview tower"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      {blockCount >= 6 ? 'Tower complete' : 'Add a block'}
-                    </button>
+                    <div className="ultimate-art-controls ultimate-toy-quick-controls">
+                      <div className="ultimate-mini-palette" role="group" aria-label="Toy colour palette">
+                        {TOY_PALETTES.map((palette, paletteIndex) => (
+                          <button key={paletteIndex} type="button" aria-label={'Choose toy palette ' + (paletteIndex + 1)} aria-pressed={toyPaletteIndex === paletteIndex} className={toyPaletteIndex === paletteIndex ? 'is-selected' : ''} onClick={() => setToyPaletteIndex(paletteIndex)}>
+                            {palette.slice(0, 3).map((color) => <i key={color} style={{ backgroundColor: color }} />)}
+                          </button>
+                        ))}
+                      </div>
+                      <button type="button" className="ultimate-mini-add" onClick={addToyPiece} disabled={toyCount >= 9}>
+                        <Sparkles className="h-3.5 w-3.5" /> {toyCount >= 9 ? 'Max pieces' : 'Add piece +'}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
 
-              <div className="case-card-copy">
-                <div className="case-title-row">
-                  <span className="case-category-marker" aria-hidden="true">{item.id === 'nightlight' ? '☾' : item.id === 'routes' ? '✧' : '▦'}</span>
-                  <h3>{item.title}</h3>
+              <div className="ultimate-project-copy">
+                <div className="ultimate-project-title-row">
+                  <span className="ultimate-project-glyph" aria-hidden="true">{project.id === 'nightlight' ? '☾' : project.id === 'routes' ? '✦' : '▧'}</span>
+                  <h3 id={'ultimate-project-title-' + project.id}>{project.title}</h3>
+                  <span className="ultimate-project-arrow" aria-hidden="true"><ArrowUpRight className="h-5 w-5" /></span>
                 </div>
-                <p className="case-tagline">{item.tagline}</p>
-                <p className="case-description">{item.description}</p>
-
-                <div className="case-card-tags">
-                  {item.details.slice(0, 2).map((detail) => (
-                    <span key={detail}>{detail}</span>
-                  ))}
+                <p className="ultimate-project-tagline">{project.tagline}</p>
+                <p className="ultimate-project-description">{project.description}</p>
+                <div className="ultimate-capability-list">
+                  {project.capabilities.map((capability) => <span key={capability}><Check className="h-3.5 w-3.5" />{capability}</span>)}
                 </div>
               </div>
 
-              <div className="case-card-footer">
-                <span className="case-footer-note">
-                  {item.id === 'nightlight' ? currentGlow.name : item.id === 'routes' ? DELIVERY_WAYPOINTS.length + ' magical stops' : 'Your build: ' + blockCount + ' blocks'}
+              <div className="ultimate-project-footer">
+                <span className="ultimate-project-live">
+                  <i />
+                  {project.id === 'nightlight' ? glow.name : project.id === 'routes' ? (deliveryStatus === 'dispatching' ? 'IN FLIGHT' : deliveryStatus === 'delivered' ? 'DELIVERED' : 'READY TO DISPATCH') : toyCount === 9 ? 'MASTER BUILDER' : toyCount + ' PIECES BUILT'}
                 </span>
-                <button
-                  type="button"
-                  className="case-open-button"
-                  onClick={() => {
-                    play('button-click');
-                    setSelectedCase(item);
-                    setDispatchQueued(false);
-                  }}
-                  aria-haspopup="dialog"
-                  aria-label={'Open case study: ' + item.title}
-                >
-                  <span>{item.cta}</span>
-                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                <button type="button" onClick={() => openProject(project)} className="ultimate-project-cta" aria-haspopup="dialog" aria-label={'Open ' + project.title}>
+                  <span>{project.action}</span><ArrowRight className="h-4 w-4" />
                 </button>
               </div>
             </article>
           ))}
         </div>
 
-        <div className="case-showcase-bottom">
-          <div className="case-bottom-star" aria-hidden="true">✦</div>
-          <p>Made with moonlight, a little mischief, and an unreasonable number of tiny details.</p>
-          <a href="#origin" onClick={() => play('nav-click')}>
-            Meet the dreamer behind it <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </a>
+        <div className="ultimate-showcase-signoff">
+          <span aria-hidden="true">✦</span>
+          <p>Made with moonlight, a little mischief, and a lot of love.</p>
+          <span aria-hidden="true">✦</span>
         </div>
       </div>
 
-      {selectedCase && (
+      {selectedProject && (
         <div
-          className="case-modal-backdrop"
+          className="ultimate-modal-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeCase();
+            if (event.target === event.currentTarget) closeProject();
           }}
         >
-          <div
+          <section
             ref={modalRef}
-            className="case-modal-panel"
+            className="ultimate-project-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="case-dialog-title"
-            aria-describedby="case-dialog-description"
-            style={{ '--case-accent': selectedCase.accent } as React.CSSProperties}
+            aria-labelledby="ultimate-modal-title"
+            aria-describedby="ultimate-modal-description"
+            style={{ '--project-accent': selectedProject.accent } as React.CSSProperties}
           >
-            <button
-              ref={closeButtonRef}
-              type="button"
-              className="case-modal-close"
-              onClick={closeCase}
-              aria-label="Close case study"
-            >
-              <X className="h-5 w-5" aria-hidden="true" />
+            <button ref={closeButtonRef} type="button" className="ultimate-modal-close" onClick={closeProject} aria-label="Close project">
+              <X className="h-5 w-5" />
             </button>
-
-            <div className="case-modal-scroll">
-              <div className="case-modal-header">
-                <span className="case-modal-kicker">CASE FILE {selectedCase.number} · {selectedCase.classification}</span>
-                <h2 id="case-dialog-title">{selectedCase.title}</h2>
-                <p id="case-dialog-description">{selectedCase.description}</p>
+            <div className="ultimate-modal-scroll">
+              <div className="ultimate-modal-heading">
+                <span className="ultimate-modal-kicker">PROJECT {selectedProject.number} · {selectedProject.label}</span>
+                <h2 id="ultimate-modal-title">{selectedProject.title}</h2>
+                <p id="ultimate-modal-description">{selectedProject.description}</p>
               </div>
 
-              {selectedCase.id === 'nightlight' && (
-                <div className="case-modal-content">
+              {selectedProject.id === 'nightlight' && (
+                <div className="ultimate-modal-content">
                   {renderNightlightArtwork(true)}
-                  <div className="case-control-card">
-                    <div className="case-control-heading">
-                      <div>
-                        <span className="case-control-label">LIVE CONTROL</span>
-                        <h3>Choose the night's colour</h3>
-                      </div>
-                      <span className="case-live-pill"><span /> LIVE</span>
+                  <div className="ultimate-control-panel">
+                    <div className="ultimate-control-heading">
+                      <div><span>LIGHT ENGINE</span><h3>Set the mood</h3></div>
+                      <span className="ultimate-live-badge"><i /> LIVE</span>
                     </div>
-                    <div className="case-modal-glow-grid">
-                      {GLOW_OPTIONS.map((glow) => (
-                        <button
-                          key={glow.id}
-                          type="button"
-                          className={'case-modal-glow-option' + (activeGlow === glow.id ? ' is-selected' : '')}
-                          onClick={() => chooseGlow(glow.id)}
-                          aria-pressed={activeGlow === glow.id}
-                        >
-                          <span className="case-modal-glow-dot" style={{ backgroundColor: glow.hex }} />
-                          <span><b>{glow.name}</b><small>{glow.subtitle}</small></span>
-                          {activeGlow === glow.id && <Check className="h-4 w-4" aria-hidden="true" />}
+                    <div className="ultimate-mood-grid" role="group" aria-label="Select lantern mood">
+                      {GLOW_OPTIONS.map((item) => (
+                        <button key={item.id} type="button" onClick={() => selectGlow(item.id)} className={activeGlow === item.id ? 'is-selected' : ''} aria-pressed={activeGlow === item.id}>
+                          <i style={{ backgroundColor: item.hex }} />
+                          <span><b>{item.name}</b><small>{item.subtitle}</small></span>
+                          {activeGlow === item.id && <Check className="h-4 w-4" />}
                         </button>
                       ))}
                     </div>
-                    <div className="case-day-night-toggle" role="group" aria-label="Preview lighting">
-                      <button type="button" className={!isNightPreview ? 'is-selected' : ''} aria-pressed={!isNightPreview} onClick={() => setIsNightPreview(false)}>
-                        <Sun className="h-4 w-4" /> Day preview
-                      </button>
-                      <button type="button" className={isNightPreview ? 'is-selected' : ''} aria-pressed={isNightPreview} onClick={() => setIsNightPreview(true)}>
-                        <Moon className="h-4 w-4" /> Night preview
-                      </button>
+                    <div className="ultimate-daynight-switch ultimate-daynight-modal" role="group" aria-label="Preview lighting">
+                      <button type="button" onClick={() => setIsNightPreview(false)} aria-pressed={!isNightPreview} className={!isNightPreview ? 'is-active' : ''}><Sun className="h-4 w-4" /> Day preview</button>
+                      <button type="button" onClick={() => setIsNightPreview(true)} aria-pressed={isNightPreview} className={isNightPreview ? 'is-active' : ''}><Moon className="h-4 w-4" /> Night preview</button>
                     </div>
-                  </div>
-                  <div className="case-story-grid">
-                    <div><span>THE CHALLENGE</span><p>{selectedCase.challenge}</p></div>
-                    <div><span>THE SOLUTION</span><p>{selectedCase.solution}</p></div>
-                  </div>
-                  <a className="case-modal-primary" href="#nightlight" onClick={() => { play('nav-click'); closeCase(); }}>
-                    Open the full Nightlight Sanctuary <ArrowRight className="h-4 w-4" />
-                  </a>
-                </div>
-              )}
-
-              {selectedCase.id === 'routes' && (
-                <div className="case-modal-content">
-                  {renderRouteArtwork(true)}
-                  <div className="case-control-card">
-                    <div className="case-control-heading">
-                      <div>
-                        <span className="case-control-label">ROUTE INTEL</span>
-                        <h3>{DELIVERY_WAYPOINTS[activeWaypoint].name}</h3>
+                    <div className="ultimate-sound-panel">
+                      <div className="ultimate-control-heading">
+                        <div><span>SOUND DESIGN</span><h3>Wind the music box</h3></div>
+                        <Volume2 className="h-5 w-5 ultimate-sound-icon" />
                       </div>
-                      <span className="case-waypoint-emoji">{DELIVERY_WAYPOINTS[activeWaypoint].emoji}</span>
-                    </div>
-                    <p className="case-waypoint-tagline">{DELIVERY_WAYPOINTS[activeWaypoint].tagline} <span>·</span> {DELIVERY_WAYPOINTS[activeWaypoint].time}</p>
-                    <div className="case-waypoint-picker" role="group" aria-label="Explore dream destinations">
-                      {DELIVERY_WAYPOINTS.map((waypoint, index) => (
-                        <button
-                          key={waypoint.id}
-                          type="button"
-                          onClick={() => { setActiveWaypoint(index); setDispatchQueued(false); }}
-                          className={activeWaypoint === index ? 'is-selected' : ''}
-                          aria-pressed={activeWaypoint === index}
-                        >
-                          <span>{waypoint.emoji}</span><b>{waypoint.name}</b><small>Port 0{index + 1}</small>
+                      <p>Soft synthesized bell tones, generated live in your browser.</p>
+                      <div className="ultimate-melody-options" role="group" aria-label="Choose lullaby melody">
+                        {MELODY_PATTERNS.map((pattern, index) => (
+                          <button key={pattern.id} type="button" onClick={() => { play('tune-select'); lullaby.setPattern(index); }} className={lullaby.activePatternIndex === index ? 'is-selected' : ''} aria-pressed={lullaby.activePatternIndex === index}>
+                            {pattern.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="ultimate-sound-actions">
+                        <button type="button" onClick={toggleLullaby} className="ultimate-sound-play">
+                          {isLullabyAudible ? <><span className="ultimate-pause-icon">Ⅱ</span> Pause lullaby</> : <><Play className="h-4 w-4 fill-current" /> Play lullaby</>}
                         </button>
-                      ))}
+                        <button type="button" onClick={() => { play('wind-key'); lullaby.windUp(25); }} className="ultimate-wind-key">
+                          <RotateCw className="h-4 w-4" /> Wind key +25%
+                        </button>
+                      </div>
+                      <div className="ultimate-wind-meter">
+                        <div><span>SPRING POWER</span><b>{lullaby.windup}%</b></div>
+                        <div className="ultimate-wind-track"><span style={{ width: Math.max(0, Math.min(100, lullaby.windup)) + '%' }} /></div>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="case-modal-primary case-dispatch-button"
-                      onClick={launchDispatch}
-                      disabled={deliveryStatus === 'dispatching'}
-                    >
-                      <Send className="h-4 w-4" />
-                      {deliveryStatus === 'dispatching' ? 'Star courier is in flight…' : 'Dispatch the next dream'}
-                    </button>
-                    {dispatchQueued && <p className="case-inline-confirmation" role="status"><Check className="h-4 w-4" /> Dispatch started. Follow the live route below.</p>}
                   </div>
-                  <div className="case-story-grid">
-                    <div><span>THE CHALLENGE</span><p>{selectedCase.challenge}</p></div>
-                    <div><span>THE SOLUTION</span><p>{selectedCase.solution}</p></div>
+                  <div className="ultimate-project-story">
+                    <div><span>THE IDEA</span><p>{selectedProject.challenge}</p></div>
+                    <div><span>THE MAGIC</span><p>{selectedProject.solution}</p></div>
                   </div>
-                  <a className="case-modal-secondary" href="#map" onClick={() => { play('nav-click'); closeCase(); }}>
-                    Watch the full live route map <ArrowRight className="h-4 w-4" />
-                  </a>
                 </div>
               )}
 
-              {selectedCase.id === 'toys' && (
-                <div className="case-modal-content">
+              {selectedProject.id === 'routes' && (
+                <div className="ultimate-modal-content ultimate-route-modal-content">
+                  <DreamDeliverySection compact onStatusChange={onDeliveryStatusChange} />
+                  <div className="ultimate-project-story ultimate-route-story">
+                    <div><span>THE IDEA</span><p>{selectedProject.challenge}</p></div>
+                    <div><span>THE MAGIC</span><p>{selectedProject.solution}</p></div>
+                  </div>
+                  <p className="ultimate-modal-note"><span>✦</span> Pick a destination on the map or send a dream to the next stop. Pip will do the rest.</p>
+                </div>
+              )}
+
+              {selectedProject.id === 'toys' && (
+                <div className="ultimate-modal-content">
                   {renderToyArtwork(true)}
-                  <div className="case-control-card">
-                    <div className="case-control-heading">
-                      <div>
-                        <span className="case-control-label">BUILD STATION</span>
-                        <h3>Your tiny tower</h3>
-                      </div>
-                      <span className="case-build-count">{blockCount} / 6</span>
+                  <div className="ultimate-control-panel">
+                    <div className="ultimate-control-heading">
+                      <div><span>TOY WORKSHOP</span><h3>Build your dream toy</h3></div>
+                      <span className="ultimate-build-count">{toyCount} / 9</span>
                     </div>
-                    <p className="case-waypoint-tagline">Stack a new piece or switch the toy's colour story.</p>
-                    <div className="case-build-actions">
-                      <button type="button" className="case-build-add" onClick={addBlock} disabled={blockCount >= 6}>
-                        <Sparkles className="h-4 w-4" /> {blockCount >= 6 ? 'Tower complete!' : 'Add a block'}
-                      </button>
-                      <button
-                        type="button"
-                        className="case-build-reset"
-                        onClick={() => { play('button-click'); setBlockCount(3); }}
-                      >
-                        <RotateCw className="h-4 w-4" /> Rebuild
-                      </button>
+                    <div className="ultimate-build-picker" role="group" aria-label="Choose toy blueprint">
+                      <button type="button" className={toyBuild === 'tower' ? 'is-selected' : ''} aria-pressed={toyBuild === 'tower'} onClick={() => selectToyBuild('tower')}><span>▥</span><b>Star tower</b><small>Stack it tall</small></button>
+                      <button type="button" className={toyBuild === 'house' ? 'is-selected' : ''} aria-pressed={toyBuild === 'house'} onClick={() => selectToyBuild('house')}><span>⌂</span><b>Cloud house</b><small>Build a home</small></button>
+                      <button type="button" className={toyBuild === 'rocket' ? 'is-selected' : ''} aria-pressed={toyBuild === 'rocket'} onClick={() => selectToyBuild('rocket')}><span>♢</span><b>Moon rocket</b><small>Fly away</small></button>
                     </div>
-                    <div className="case-palette-picker" role="group" aria-label="Choose toy colour palette">
+                    <div className="ultimate-toy-control-actions">
+                      <button type="button" onClick={addToyPiece} disabled={toyCount >= 9}><Sparkles className="h-4 w-4" />{toyCount >= 9 ? 'Build complete!' : 'Add a piece'}</button>
+                      <button type="button" onClick={resetToy}><RotateCw className="h-4 w-4" />Start again</button>
+                    </div>
+                    <div className="ultimate-palette-picker" role="group" aria-label="Choose toy palette">
                       {TOY_PALETTES.map((palette, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          className={'case-palette-option' + (toyPaletteIndex === index ? ' is-selected' : '')}
-                          onClick={() => { play('button-click'); setToyPaletteIndex(index); }}
-                          aria-pressed={toyPaletteIndex === index}
-                          aria-label={'Choose palette ' + (index + 1)}
-                        >
-                          {palette.slice(0, 4).map((color) => <span key={color} style={{ backgroundColor: color }} />)}
+                        <button key={index} type="button" aria-label={'Choose colour palette ' + (index + 1)} aria-pressed={toyPaletteIndex === index} className={toyPaletteIndex === index ? 'is-selected' : ''} onClick={() => { play('button-click'); setToyPaletteIndex(index); }}>
+                          {palette.slice(0, 4).map((color) => <i key={color} style={{ backgroundColor: color }} />)}
                         </button>
                       ))}
                     </div>
-                    <div className="case-build-progress" role="progressbar" aria-label="Tower build progress" aria-valuemin={0} aria-valuemax={6} aria-valuenow={blockCount}>
-                      <span style={{ width: ((blockCount / 6) * 100) + '%' }} />
+                    <div className="ultimate-build-progress" role="progressbar" aria-label="Toy building progress" aria-valuemin={0} aria-valuemax={9} aria-valuenow={toyCount}>
+                      <span style={{ width: (toyCount / 9 * 100) + '%' }} />
                     </div>
-                    <p className="case-inline-confirmation" role="status"><Check className="h-4 w-4" /> {blockCount === 6 ? 'Perfect tower! Pip approves.' : 'Looking good — ' + (6 - blockCount) + ' block' + (6 - blockCount === 1 ? '' : 's') + ' left until the tower is complete.'}</p>
+                    <p className="ultimate-build-message" role="status"><Check className="h-4 w-4" />{toyCount === 9 ? 'You built a masterpiece. Pip approves!' : 'A lovely start. ' + (9 - toyCount) + ' piece' + (9 - toyCount === 1 ? '' : 's') + ' left to finish this toy.'}</p>
                   </div>
-                  <div className="case-story-grid">
-                    <div><span>THE CHALLENGE</span><p>{selectedCase.challenge}</p></div>
-                    <div><span>THE SOLUTION</span><p>{selectedCase.solution}</p></div>
+                  <div className="ultimate-project-story">
+                    <div><span>THE IDEA</span><p>{selectedProject.challenge}</p></div>
+                    <div><span>THE MAGIC</span><p>{selectedProject.solution}</p></div>
                   </div>
-                  <button type="button" className="case-modal-secondary case-modal-full-button" onClick={closeCase}>
-                    Keep this build and return to the case files <ArrowRight className="h-4 w-4" />
-                  </button>
                 </div>
               )}
             </div>
-          </div>
+          </section>
         </div>
       )}
     </section>
