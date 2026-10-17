@@ -21,16 +21,23 @@ interface CustomCursorProps {
 }
 
 export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
-  const [visible, setVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [isInteractive, setIsInteractive] = useState(false);
   const [isProjectCard, setIsProjectCard] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [isFinePointer, setIsFinePointer] = useState(false);
   const [sparkles, setSparkles] = useState<ClickSparkle[]>([]);
 
-  const posRef = useRef<{ x: number; y: number }>({ x: -100, y: -100 });
+  const posRef = useRef<{ x: number; y: number; isDirty: boolean }>({
+    x: -100,
+    y: -100,
+    isDirty: false,
+  });
   const cursorRef = useRef<HTMLDivElement | null>(null);
+  const sparklesRef = useRef<ClickSparkle[]>([]);
   const animFrameRef = useRef<number | null>(null);
+  const isRunningRef = useRef<boolean>(false);
+  const isVisibleRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Check if device supports fine pointer and motion is allowed
@@ -49,9 +56,64 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
     // Authoritative global cursor suppression class
     document.documentElement.classList.add('has-custom-cursor');
 
+    // Function to ensure RAF loop is active only while needed
+    const startLoopIfNeeded = () => {
+      if (isRunningRef.current) return;
+      isRunningRef.current = true;
+
+      const loop = () => {
+        let needsNextFrame = false;
+
+        // 1. Update cursor DOM transform if mouse position changed
+        if (posRef.current.isDirty) {
+          posRef.current.isDirty = false;
+          if (cursorRef.current && posRef.current.x >= 0) {
+            const clampedX = Math.max(0, Math.min(window.innerWidth, posRef.current.x));
+            const clampedY = Math.max(0, Math.min(window.innerHeight, posRef.current.y));
+            cursorRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`;
+          }
+        }
+
+        // 2. Animate and decay sparkles if any exist
+        if (sparklesRef.current.length > 0) {
+          sparklesRef.current = sparklesRef.current
+            .map((s) => ({
+              ...s,
+              x: s.x + s.vx,
+              y: s.y + s.vy,
+              opacity: s.opacity - 0.05,
+            }))
+            .filter((s) => s.opacity > 0);
+
+          setSparkles([...sparklesRef.current]);
+
+          if (sparklesRef.current.length > 0) {
+            needsNextFrame = true;
+          }
+        }
+
+        // If dirty again or still animating sparkles, continue RAF loop
+        if (posRef.current.isDirty || needsNextFrame) {
+          animFrameRef.current = requestAnimationFrame(loop);
+        } else {
+          // Put RAF to sleep to save CPU and battery
+          isRunningRef.current = false;
+          animFrameRef.current = null;
+        }
+      };
+
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
-      posRef.current = { x: e.clientX, y: e.clientY };
-      if (!visible) setVisible(true);
+      posRef.current.x = e.clientX;
+      posRef.current.y = e.clientY;
+      posRef.current.isDirty = true;
+
+      if (!isVisibleRef.current) {
+        isVisibleRef.current = true;
+        setIsVisible(true);
+      }
 
       // Check if hovering over interactive elements or project cards
       const target = e.target as HTMLElement | null;
@@ -66,20 +128,24 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
         );
         setIsProjectCard(Boolean(projectCardMatch));
       }
+
+      startLoopIfNeeded();
     };
 
     const handleMouseLeave = () => {
-      setVisible(false);
+      isVisibleRef.current = false;
+      setIsVisible(false);
     };
 
     const handleMouseEnter = () => {
-      setVisible(true);
+      isVisibleRef.current = true;
+      setIsVisible(true);
     };
 
     const handleMouseDown = (e: MouseEvent) => {
       setIsClicking(true);
 
-      // Add 4-5 tiny short-lived sparkles on click with gentle pastel & gold hues
+      // Add 5 tiny short-lived sparkles on click with gentle pastel & gold hues
       const colors = ['#f3cf75', '#d9c8ef', '#f1c9d6', '#ffffff', '#ffd166'];
       const newSparkles: ClickSparkle[] = Array.from({ length: 5 }, (_, i) => {
         const angle = (Math.PI * 2 * i) / 5 + (Math.random() - 0.5) * 0.4;
@@ -96,7 +162,10 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
         };
       });
 
-      setSparkles((prev) => [...prev.slice(-15), ...newSparkles]);
+      sparklesRef.current = [...sparklesRef.current.slice(-10), ...newSparkles];
+      setSparkles([...sparklesRef.current]);
+
+      startLoopIfNeeded();
     };
 
     const handleMouseUp = () => {
@@ -109,33 +178,6 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
 
-    // High performance RAF loop for smooth 60fps cursor follow without React re-renders
-    const updateCursor = () => {
-      if (cursorRef.current && posRef.current.x >= 0) {
-        // Clamp to viewport bounds
-        const clampedX = Math.max(0, Math.min(window.innerWidth, posRef.current.x));
-        const clampedY = Math.max(0, Math.min(window.innerHeight, posRef.current.y));
-        cursorRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`;
-      }
-
-      // Decay sparkles smoothly
-      setSparkles((prev) => {
-        if (prev.length === 0) return prev;
-        return prev
-          .map((s) => ({
-            ...s,
-            x: s.x + s.vx,
-            y: s.y + s.vy,
-            opacity: s.opacity - 0.05,
-          }))
-          .filter((s) => s.opacity > 0);
-      });
-
-      animFrameRef.current = requestAnimationFrame(updateCursor);
-    };
-
-    animFrameRef.current = requestAnimationFrame(updateCursor);
-
     return () => {
       document.documentElement.classList.remove('has-custom-cursor');
       window.removeEventListener('mousemove', handleMouseMove);
@@ -147,10 +189,11 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
       }
+      isRunningRef.current = false;
     };
-  }, [enabled, visible]);
+  }, [enabled]);
 
-  if (!enabled || !isFinePointer || !visible) {
+  if (!enabled || !isFinePointer || !isVisible) {
     return null;
   }
 

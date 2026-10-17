@@ -22,6 +22,8 @@ export function useLullabyAudio(initialMuted: boolean = true) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [activeNote, setActiveNote] = useState<string | null>(null);
 
+  const noteTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     const synth = new MusicBoxSynthesizer();
     synth.setMuted(initialMuted);
@@ -30,7 +32,8 @@ export function useLullabyAudio(initialMuted: boolean = true) {
         setActiveNote(note);
         setElapsedSeconds(elapsed);
         setWindup(currentWindup);
-        setTimeout(() => setActiveNote(null), 380);
+        if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
+        noteTimerRef.current = setTimeout(() => setActiveNote(null), 380);
       },
       (playingState, currentWindup) => {
         setIsPlaying(playingState);
@@ -40,6 +43,7 @@ export function useLullabyAudio(initialMuted: boolean = true) {
     synthRef.current = synth;
 
     return () => {
+      if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
       synth.destroy();
       synthRef.current = null;
     };

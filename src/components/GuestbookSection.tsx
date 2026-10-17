@@ -38,12 +38,31 @@ interface GuestbookSectionProps {
 
 export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEasterEgg }) => {
   const { play } = useSoundEffects();
-  const [entries, setEntries] = useState<DreamEntry[]>(INITIAL_ENTRIES);
+  const GUESTBOOK_STORAGE_KEY = 'pip_guestbook_ledger';
+  const HARVEST_STORAGE_KEY = 'pip_dreams_harvested';
+
+  const [entries, setEntries] = useState<DreamEntry[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(GUESTBOOK_STORAGE_KEY);
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_ENTRIES;
+  });
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [selectedStamp, setSelectedStamp] = useState('⭐');
   const [formError, setFormError] = useState<string | null>(null);
-  const [dreamsHarvested, setDreamsHarvested] = useState(4829);
+  const [dreamsHarvested, setDreamsHarvested] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(HARVEST_STORAGE_KEY);
+        if (saved) return parseInt(saved, 10);
+      } catch {}
+    }
+    return 4829;
+  });
   const [justSubmittedId, setJustSubmittedId] = useState<string | null>(null);
 
   const stamps = ['⭐', '☁️', '🦄', '🎀'];
@@ -68,9 +87,16 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
       timestamp: 'Just now',
     };
 
-    setEntries([newEntry, ...entries]);
-    setDreamsHarvested((prev) => prev + 1);
+    const updatedEntries = [newEntry, ...entries];
+    setEntries(updatedEntries);
+    const updatedHarvested = dreamsHarvested + 1;
+    setDreamsHarvested(updatedHarvested);
     setJustSubmittedId(newId);
+
+    try {
+      localStorage.setItem(GUESTBOOK_STORAGE_KEY, JSON.stringify(updatedEntries.slice(0, 50)));
+      localStorage.setItem(HARVEST_STORAGE_KEY, String(updatedHarvested));
+    } catch {}
 
     setName('');
     setMessage('');
