@@ -15,14 +15,17 @@ const WAYPOINT_PROGRESS = [0, 0.52, 1.0];
 interface DreamDeliverySectionProps {
   dispatchTrigger?: number;
   onStatusChange?: (status: DeliveryStatus) => void;
+  compact?: boolean;
 }
 
 export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   dispatchTrigger,
   onStatusChange,
+  compact = false,
 }) => {
   const { play } = useSoundEffects();
   const pathRef = useRef<SVGPathElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(1);
   const [status, setStatus] = useState<DeliveryStatus>('idle');
   const [progressFraction, setProgressFraction] = useState(0); // 0 to 1
@@ -58,8 +61,13 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     }
   };
 
-  // Launch Delivery Animation
+  // Launch Delivery Animation. Only one flight may be active at a time.
   const startDelivery = (targetIndex: number) => {
+    if (status === 'dispatching') return;
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     play('dream-dispatch');
     setSelectedDestinationIndex(targetIndex);
     const targetProgress = WAYPOINT_PROGRESS[targetIndex];
@@ -92,15 +100,16 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       updateStarToProgress(current);
 
       if (t < 1) {
-        requestAnimationFrame(animate);
+        animationFrameRef.current = requestAnimationFrame(animate);
       } else {
+        animationFrameRef.current = null;
         setProgressFraction(targetProgress);
         updateStarToProgress(targetProgress);
         setStatus('delivered');
       }
     };
 
-    requestAnimationFrame(animate);
+    animationFrameRef.current = requestAnimationFrame(animate);
   };
 
   // Handle "Deliver a Dream" main button click
@@ -116,27 +125,37 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, []);
+
   const message = getDeliveryMessage(status, activeWaypoint.name, progressFraction);
 
   return (
     <section
-      id="map"
-      className="py-16 md:py-20 relative"
+      id={compact ? undefined : "map"}
+      className={compact ? "ultimate-route-embed relative" : "py-16 md:py-20 relative"}
       aria-label="Dream Delivery Route Map"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 md:mb-14">
-          <span className="font-bubbly text-xs tracking-widest uppercase text-rich-berry dark:text-star-gold bg-soft-blush dark:bg-plum px-3.5 py-1 rounded-full border border-rich-berry/20">
-            Real-Time Constellation Dispatch
-          </span>
-          <h2 className="font-serif-headline text-3xl sm:text-5xl font-bold text-plum dark:text-star-gold mt-3">
-            Dream Delivery Route Map
-          </h2>
-          <p className="font-bubbly text-warm-brown/80 dark:text-cream/70 text-sm sm:text-base mt-2">
-            Watch Pip journey across midnight rooftops and cloud spires to drop off sweet dreams.
-          </p>
-        </div>
+        {!compact && (
+          <div className="text-center max-w-2xl mx-auto mb-12 md:mb-14">
+            <span className="font-bubbly text-xs tracking-widest uppercase text-rich-berry dark:text-star-gold bg-soft-blush dark:bg-plum px-3.5 py-1 rounded-full border border-rich-berry/20">
+              Real-Time Constellation Dispatch
+            </span>
+            <h2 className="font-serif-headline text-3xl sm:text-5xl font-bold text-plum dark:text-star-gold mt-3">
+              Dream Delivery Route Map
+            </h2>
+            <p className="font-bubbly text-warm-brown/80 dark:text-cream/70 text-sm sm:text-base mt-2">
+              Watch Pip journey across midnight rooftops and cloud spires to drop off sweet dreams.
+            </p>
+          </div>
+        )}
 
         {/* SVG Map Container */}
         <div
@@ -365,7 +384,11 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               return (
                 <button
                   key={wp.id}
+                  type="button"
                   onClick={() => startDelivery(idx)}
+                  disabled={status === 'dispatching'}
+                  aria-pressed={isSelected}
+                  aria-label={'Deliver a dream to ' + wp.name}
                   className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-white/20 border-star-gold shadow-lg ring-2 ring-star-gold/40 scale-102'

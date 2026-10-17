@@ -7,9 +7,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MainNavigation } from './components/MainNavigation';
 import { HeroSection } from './components/HeroSection';
 import { AboutSection } from './components/AboutSection';
-import { LullabyLabSection } from './components/LullabyLabSection';
-import { NightlightSection } from './components/NightlightSection';
-import { DreamDeliverySection } from './components/DreamDeliverySection';
 import { OriginStorySection } from './components/OriginStorySection';
 import { GuestbookSection } from './components/GuestbookSection';
 import { FooterSection } from './components/FooterSection';
@@ -51,7 +48,6 @@ function ObservatoryContent() {
 
   // Synchronized Project Showcase States
   const [activeGlow, setActiveGlow] = useState<GlowMode>('amber');
-  const [dispatchTrigger, setDispatchTrigger] = useState<number>(0);
   const [deliveryStatus, setDeliveryStatus] = useState<string>('idle');
 
   const [isChaosMode, setIsChaosMode] = useState(false);
@@ -91,10 +87,6 @@ function ObservatoryContent() {
     }
   }, [lullaby]);
 
-  const handleQuickDispatch = useCallback(() => {
-    setDispatchTrigger((prev) => prev + 1);
-  }, []);
-
   return (
     <div className="min-h-screen bg-cream text-warm-brown antialiased dark:bg-plum-dark dark:text-cream selection:bg-soft-blush selection:text-plum transition-colors duration-300">
       {/* Magical Celestial Custom Cursor */}
@@ -129,26 +121,11 @@ function ObservatoryContent() {
           lullaby={lullaby}
           activeGlow={activeGlow}
           onSelectGlow={setActiveGlow}
-          onQuickDispatch={handleQuickDispatch}
           deliveryStatus={deliveryStatus}
+          onDeliveryStatusChange={setDeliveryStatus}
         />
 
-        {/* 4. Project Showcase I: Lullaby Lab with Web Audio API Synthesizer */}
-        <LullabyLabSection lullaby={lullaby} />
-
-        {/* 5. Project Showcase II: Nightlight Sanctuary with live glow and day/night preview */}
-        <NightlightSection
-          activeGlow={activeGlow}
-          onSelectGlow={setActiveGlow}
-        />
-
-        {/* 6. Project Showcase III: Dream Delivery Route Map with animated SVG star flight */}
-        <DreamDeliverySection
-          dispatchTrigger={dispatchTrigger}
-          onStatusChange={setDeliveryStatus}
-        />
-
-        {/* 6. Origin Story with Viewport IntersectionObserver Reveal */}
+        {/* Character story remains separate from the three interactive project worlds. */}
         <OriginStorySection />
 
         {/* 7. Starlight Ledger Guestbook & Mechanical Odometer */}
