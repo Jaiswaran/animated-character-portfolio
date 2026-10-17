@@ -3,13 +3,37 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Sparkles, ArrowDown } from 'lucide-react';
+import { calculateTilt, TiltValues } from '../utils/tilt';
 
 const PIP_AVATAR_FALLBACK =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuAgOGoA_n5Kntd9bmaqk1LBUmKv-GEmZMu8zRozn6HhFxT3jzHpE1ldX5zXVtYSxMP5Em5qbAAT2P_p9lQJbed-yooON4bj-lR0_Eb7JOkTtN0dAMsp93VmPCoDBsVkXAhphHg5aU11bcvX6_TrFeXiS1gEbQSrAlWDRiGRCroYIv6OLaR5yTuoRvgJFCGYCtxRKTK0xULhmmwcNc8qT6cKznueps8wxssgOUexgr7s_P5F36-hTTYuRj5bliKfJYx2Qg';
 
 export const HeroSection: React.FC = () => {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [tilt, setTilt] = useState<TiltValues>({ rotateX: 0, rotateY: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+  const [touchBounce, setTouchBounce] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const newTilt = calculateTilt(e.clientX, e.clientY, rect, 7);
+    setTilt(newTilt);
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setTilt({ rotateX: 0, rotateY: 0 });
+  };
+
+  const handleTouch = () => {
+    setTouchBounce(true);
+    setTimeout(() => setTouchBounce(false), 600);
+  };
+
   return (
     <section
       id="hero"
@@ -115,9 +139,23 @@ export const HeroSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Column: Pip's Official Cloud Avatar Artwork */}
+          {/* Right Column: Pip's Official Cloud Avatar Artwork with subtle pointer-responsive movement */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="relative w-full max-w-[280px] sm:max-w-md">
+            <div
+              ref={cardRef}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+              onTouchStart={handleTouch}
+              className="relative w-full max-w-[280px] sm:max-w-md transition-transform duration-200 ease-out cursor-pointer"
+              style={{
+                transform: touchBounce
+                  ? 'scale(1.05) translateY(-6px)'
+                  : isHovered
+                  ? `perspective(700px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.02, 1.02, 1.02)`
+                  : 'perspective(700px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+              }}
+              title="Gently tilt or tap to say hello to Pip!"
+            >
               {/* Dynamic Aura Glow */}
               <div
                 className="absolute inset-0 bg-gradient-to-tr from-soft-blush via-star-gold/40 to-dream-lavender rounded-[48px] blur-2xl opacity-75 -z-10 animate-soft-glow"

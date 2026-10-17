@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface StoryAct {
   roman: string;
@@ -53,6 +53,41 @@ const STORY_ACTS: StoryAct[] = [
 ];
 
 export const OriginStorySection: React.FC = () => {
+  const [visibleIndices, setVisibleIndices] = useState<number[]>([]);
+  const cardRefs = useRef<(HTMLElement | null)[]>([]);
+
+  useEffect(() => {
+    // If IntersectionObserver is not available or reduced motion is preferred, reveal all immediately
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!('IntersectionObserver' in window) || prefersReducedMotion) {
+      setVisibleIndices([0, 1, 2]);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = Number(entry.target.getAttribute('data-index'));
+            setVisibleIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+    );
+
+    cardRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   return (
     <section
       id="origin"
@@ -73,41 +108,50 @@ export const OriginStorySection: React.FC = () => {
           </p>
         </div>
 
-        {/* 3 Story Cards Grid */}
+        {/* 3 Story Cards Grid with Viewport Intersection Reveal */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 relative">
-          {STORY_ACTS.map((act) => (
-            <article
-              key={act.roman}
-              className="bg-white dark:bg-plum rounded-3xl p-6 sm:p-7 border-2 border-rich-berry/20 shadow-lg relative flex flex-col justify-between group hover:-translate-y-1.5 transition-transform"
-            >
-              <div>
-                {/* Roman Numeral Emblem */}
-                <div
-                  className={`w-12 h-12 rounded-2xl ${act.badgeBg} ${act.badgeTextColor} flex items-center justify-center font-serif-headline font-bold text-xl mb-4 border ${act.badgeBorder}`}
-                  aria-hidden="true"
-                >
-                  {act.roman}
+          {STORY_ACTS.map((act, index) => {
+            const isVisible = visibleIndices.includes(index);
+            return (
+              <article
+                key={act.roman}
+                data-index={index}
+                ref={(el) => {
+                  cardRefs.current[index] = el;
+                }}
+                className={`bg-white dark:bg-plum rounded-3xl p-6 sm:p-7 border-2 border-rich-berry/20 shadow-lg relative flex flex-col justify-between group hover:-translate-y-1.5 transition-all duration-700 ease-out ${
+                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-40 translate-y-6'
+                }`}
+              >
+                <div>
+                  {/* Roman Numeral Emblem */}
+                  <div
+                    className={`w-12 h-12 rounded-2xl ${act.badgeBg} ${act.badgeTextColor} flex items-center justify-center font-serif-headline font-bold text-xl mb-4 border ${act.badgeBorder}`}
+                    aria-hidden="true"
+                  >
+                    {act.roman}
+                  </div>
+
+                  <span className="font-bubbly text-xs uppercase text-rich-berry dark:text-star-gold font-bold">
+                    {act.actTitle}
+                  </span>
+
+                  <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-cream mt-1 mb-3">
+                    {act.sceneTitle}
+                  </h3>
+
+                  <p className="font-body text-warm-brown/85 dark:text-cream/80 text-sm leading-relaxed">
+                    {act.story}
+                  </p>
                 </div>
 
-                <span className="font-bubbly text-xs uppercase text-rich-berry dark:text-star-gold font-bold">
-                  {act.actTitle}
-                </span>
-
-                <h3 className="font-serif-headline text-2xl font-bold text-plum dark:text-cream mt-1 mb-3">
-                  {act.sceneTitle}
-                </h3>
-
-                <p className="font-body text-warm-brown/85 dark:text-cream/80 text-sm leading-relaxed">
-                  {act.story}
-                </p>
-              </div>
-
-              {/* Bottom Italic Motto */}
-              <div className="mt-6 pt-4 border-t border-rich-berry/10 font-serif-headline italic text-xs text-rich-berry dark:text-star-gold">
-                {act.motto}
-              </div>
-            </article>
-          ))}
+                {/* Bottom Italic Motto */}
+                <div className="mt-6 pt-4 border-t border-rich-berry/10 font-serif-headline italic text-xs text-rich-berry dark:text-star-gold">
+                  {act.motto}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

@@ -3,12 +3,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
+import { calculateTilt, TiltValues } from '../utils/tilt';
 
 const PIP_PORTRAIT_FALLBACK =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuD1XDG3rpJQyJJ7pQ7o8TgEabgHL7ROOX6YQUaXSV8h9OAJNgx9dkAiCE0OPVXLnGuibW5EIr1A2C3n-RWy3jYkodcpLrI7Rosz8S67C3ub2RP4eHAs2bm0AGORyztopL6XMoP6i0KDCZD8t1j30X55ExiVN9HTf1QbZpTJ-CNMqoVLvYpiR4HIOrHO0cXmv-pncNclQHXOXLBmsC7WRqxnnTvX12eu3MhmlPQ12vX5gOrwcQaOCTSTq79ec1hJmbqA-w';
 
 export const AboutSection: React.FC = () => {
+  const badgeRef = useRef<HTMLDivElement | null>(null);
+  const [tilt, setTilt] = useState<TiltValues>({ rotateX: 0, rotateY: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!badgeRef.current) return;
+    const rect = badgeRef.current.getBoundingClientRect();
+    const newTilt = calculateTilt(e.clientX, e.clientY, rect, 6);
+    setTilt(newTilt);
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setTilt({ rotateX: 0, rotateY: 0 });
+  };
+
   return (
     <section
       id="about"
@@ -31,9 +49,20 @@ export const AboutSection: React.FC = () => {
 
         {/* ID Card Dossier Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left: Staff Laminated Badge */}
+          {/* Left: Staff Laminated Badge with subtle 3D tilt */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="w-full max-w-sm bg-white dark:bg-plum-dark rounded-3xl p-6 border-4 border-dashed border-rich-berry shadow-2xl relative">
+            <div
+              ref={badgeRef}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+              className="w-full max-w-sm bg-white dark:bg-plum-dark rounded-3xl p-6 border-4 border-dashed border-rich-berry shadow-2xl relative transition-transform duration-150 ease-out cursor-pointer"
+              style={{
+                transform: isHovered
+                  ? `perspective(600px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.02, 1.02, 1.02)`
+                  : 'perspective(600px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+              }}
+              title="Gently hover to inspect Pip's laminated ID badge"
+            >
               {/* Badge Lanyard Hole Punch */}
               <div
                 className="w-16 h-3 bg-warm-brown/20 rounded-full mx-auto mb-4 border border-warm-brown/40"

@@ -4,13 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { Menu, X, Sparkles, Moon, Sun } from 'lucide-react';
+import { Menu, X, Sparkles, Moon, Sun, Volume2, VolumeX } from 'lucide-react';
 
 interface MainNavigationProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
-  isLullabyPlaying: boolean;
-  onToggleLullaby: () => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
   isChaosMode: boolean;
   onToggleChaosMode: () => void;
 }
@@ -18,8 +18,8 @@ interface MainNavigationProps {
 export const MainNavigation: React.FC<MainNavigationProps> = ({
   isDarkMode,
   onToggleDarkMode,
-  isLullabyPlaying,
-  onToggleLullaby,
+  isMuted,
+  onToggleMute,
   isChaosMode,
   onToggleChaosMode,
 }) => {
@@ -85,36 +85,24 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
 
         {/* Header Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-          {/* Lullaby Audio Control */}
+          {/* Lullaby Master Audio Toggle */}
           <button
-            onClick={onToggleLullaby}
-            aria-label={isLullabyPlaying ? 'Pause Lullaby Music' : 'Play Lullaby Music'}
-            className="px-2.5 sm:px-3.5 py-1.5 rounded-full bg-soft-blush/40 hover:bg-soft-blush border border-rich-berry/20 flex items-center gap-1.5 sm:gap-2 text-xs font-bubbly dark:bg-plum-dark dark:border-star-gold/40 dark:text-cream transition-all cursor-pointer"
+            onClick={onToggleMute}
+            aria-label={isMuted ? 'Lullaby muted. Click to turn sound on' : 'Lullaby playing. Click to mute sound'}
+            aria-pressed={!isMuted}
+            className={`px-2.5 sm:px-3.5 py-1.5 rounded-full border flex items-center gap-1.5 sm:gap-2 text-xs font-bubbly transition-all cursor-pointer ${
+              !isMuted
+                ? 'bg-rich-berry text-white border-rich-berry shadow-sm'
+                : 'bg-soft-blush/40 hover:bg-soft-blush border-rich-berry/20 text-warm-brown dark:bg-plum-dark dark:border-star-gold/40 dark:text-cream'
+            }`}
           >
-            <div className="flex items-end gap-0.5 h-3.5 w-3.5" aria-hidden="true">
-              <span
-                className={`w-0.5 sm:w-1 bg-rich-berry dark:bg-star-gold rounded-t ${
-                  isLullabyPlaying ? 'eq-bar-1' : 'h-1'
-                }`}
-              />
-              <span
-                className={`w-0.5 sm:w-1 bg-rich-berry dark:bg-star-gold rounded-t ${
-                  isLullabyPlaying ? 'eq-bar-2' : 'h-1.5'
-                }`}
-              />
-              <span
-                className={`w-0.5 sm:w-1 bg-rich-berry dark:bg-star-gold rounded-t ${
-                  isLullabyPlaying ? 'eq-bar-3' : 'h-2'
-                }`}
-              />
-              <span
-                className={`w-0.5 sm:w-1 bg-rich-berry dark:bg-star-gold rounded-t ${
-                  isLullabyPlaying ? 'eq-bar-4' : 'h-1'
-                }`}
-              />
-            </div>
+            {!isMuted ? (
+              <Volume2 className="w-3.5 h-3.5 text-star-gold animate-pulse" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 text-rich-berry dark:text-star-gold" />
+            )}
             <span className="hidden sm:inline font-medium">
-              Lullaby: {isLullabyPlaying ? 'ON' : 'MUTED'}
+              Lullaby: {!isMuted ? 'ON' : 'MUTED'}
             </span>
           </button>
 
@@ -122,6 +110,7 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
           <button
             onClick={onToggleChaosMode}
             aria-label={isChaosMode ? 'Turn Chaos Mode Off' : 'Turn Chaos Mode On'}
+            aria-pressed={isChaosMode}
             className="hidden sm:flex px-2.5 sm:px-3 py-1.5 rounded-full bg-star-gold/20 hover:bg-star-gold/40 border border-warm-brown/20 items-center gap-1.5 text-xs font-bubbly text-warm-brown dark:text-cream dark:border-star-gold/40 transition-all cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-star-gold animate-spin-slow" aria-hidden="true" />
@@ -130,10 +119,12 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
             </span>
           </button>
 
-          {/* Theme Toggle */}
+          {/* Day/Night Theme Toggle */}
           <button
             onClick={onToggleDarkMode}
-            aria-label={isDarkMode ? 'Switch to Starlight Cream Day mode' : 'Switch to Velvet Plum Slumber mode'}
+            role="switch"
+            aria-checked={isDarkMode}
+            aria-label={isDarkMode ? 'Velvet Plum Night mode active. Click for Starlight Cream Day mode' : 'Starlight Cream Day mode active. Click for Velvet Plum Night mode'}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-rich-berry text-star-gold flex items-center justify-center hover:scale-105 shadow transition-transform cursor-pointer"
           >
             {isDarkMode ? (

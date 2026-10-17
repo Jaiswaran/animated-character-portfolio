@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-cream: #fff8f1;
   --color-plum: #241b35;
@@ -27,6 +29,8 @@ body {
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
+html.dark,
+html.dark body,
 .dark body {
   background-color: #171123;
   color: #fff8f1;

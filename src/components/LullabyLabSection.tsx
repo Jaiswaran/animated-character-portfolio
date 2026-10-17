@@ -3,31 +3,109 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { TUNES, Tune, getTempoLabel } from '../utils/lullaby';
+import React, { useState, useEffect, useRef } from 'react';
+import { Volume2, VolumeX, Play, Pause, Square, RotateCw } from 'lucide-react';
+import {
+  MusicBoxSynthesizer,
+  MELODY_PATTERNS,
+} from '../utils/audioSynthesizer';
+import { getTempoLabel } from '../utils/lullaby';
 
 const PIP_LULLABY_BOX_FALLBACK =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCIBVXnFXJnjntUvPP1v6XekDoyi3xTXGmh7TEWMNQyMTdhZ3KGyG4bEdcGYryjcMBqlCynfm0hfpluvWPfnwYvMZ7PMxr8pnKVWJr3zOD4u96sK_Dh_BVeP-yRLSFnDOSB4fVNDBzjVmjdV873qV802fQuX8cOOnd64LEbE5lNl_IxMrcOVA84ANSVpu-Re56F3QVGuzfOSbcHpRQCV6rlg2j1kxioj-R6__sqUVFhGBVSqiF2HzUMyh_DlR2CltzdUA';
 
 interface LullabyLabSectionProps {
-  isPlaying: boolean;
-  onTogglePlay: () => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
 }
 
 export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
-  isPlaying,
-  onTogglePlay,
+  isMuted,
+  onToggleMute,
 }) => {
-  const [selectedTune, setSelectedTune] = useState<Tune>(TUNES[0]);
-  const [windupTime, setWindupTime] = useState(100);
+  const synthRef = useRef<MusicBoxSynthesizer | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [activePatternIndex, setActivePatternIndex] = useState(0);
   const [tempo, setTempo] = useState(42);
+  const [windupTime, setWindupTime] = useState(100);
+  const [activeNote, setActiveNote] = useState<string | null>(null);
   const [keyRotated, setKeyRotated] = useState(false);
 
+  // Initialize synthesizer lazily
+  useEffect(() => {
+    const synth = new MusicBoxSynthesizer();
+    synth.setMuted(isMuted);
+    synth.setOnNote((note) => {
+      setActiveNote(note);
+      setTimeout(() => setActiveNote(null), 400);
+    });
+    synthRef.current = synth;
+
+    return () => {
+      synth.destroy();
+      synthRef.current = null;
+    };
+  }, []);
+
+  // Sync mute state
+  useEffect(() => {
+    if (synthRef.current) {
+      synthRef.current.setMuted(isMuted);
+    }
+  }, [isMuted]);
+
+  // Handle Play
+  const handlePlay = () => {
+    if (!synthRef.current) return;
+    synthRef.current.play();
+    setIsPlaying(true);
+  };
+
+  // Handle Pause
+  const handlePause = () => {
+    if (!synthRef.current) return;
+    synthRef.current.pause();
+    setIsPlaying(false);
+  };
+
+  // Handle Stop
+  const handleStop = () => {
+    if (!synthRef.current) return;
+    synthRef.current.stop();
+    setIsPlaying(false);
+    setActiveNote(null);
+  };
+
+  // Handle Tune Selection
+  const handleSelectTune = (index: number) => {
+    setActivePatternIndex(index);
+    if (synthRef.current) {
+      synthRef.current.setPattern(index);
+      setTempo(MELODY_PATTERNS[index].bpm);
+    }
+  };
+
+  // Handle Tempo Change
+  const handleTempoChange = (newTempo: number) => {
+    setTempo(newTempo);
+    if (synthRef.current) {
+      synthRef.current.setTempo(newTempo);
+    }
+  };
+
+  // Handle Wind Up Key (+25%)
   const handleWindUp = () => {
     setWindupTime((prev) => Math.min(100, prev + 25));
     setKeyRotated(true);
     setTimeout(() => setKeyRotated(false), 500);
+
+    // If currently stopped, play automatically after gesture
+    if (!isPlaying && synthRef.current) {
+      handlePlay();
+    }
   };
+
+  const currentPattern = MELODY_PATTERNS[activePatternIndex];
 
   return (
     <section
@@ -45,7 +123,7 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
             Pip's Interactive Lullaby Lab
           </h2>
           <p className="font-bubbly text-warm-brown/80 dark:text-cream/70 text-sm sm:text-base mt-2">
-            The heart of bedtime engineering: wind up the pastel unicorn music box to generate comforting tones.
+            The heart of bedtime engineering: gentle Web Audio music box tones with soft oscillator bells and relaxing cadences.
           </p>
         </div>
 
@@ -79,7 +157,7 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-            {/* Music Box Asset Showcase */}
+            {/* Music Box Visual Showcase */}
             <div className="lg:col-span-6 flex flex-col items-center">
               <div className="relative group w-full max-w-md">
                 <div className="w-full rounded-3xl overflow-hidden border-4 border-soft-blush bg-cream p-4 shadow-lg">
@@ -114,10 +192,10 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                   </span>
                 </div>
 
-                {/* Harmonizing Badge */}
+                {/* Harmonizing Badge & Note Live Chime */}
                 {isPlaying && (
-                  <div className="absolute top-6 right-6 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rich-berry text-white text-xs font-bubbly font-bold animate-pulse shadow-md">
-                    <span>♫ Harmonizing</span>
+                  <div className="absolute top-6 right-6 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rich-berry text-white text-xs font-bubbly font-bold animate-pulse shadow-md">
+                    <span>♫ {activeNote ? `Chiming: ${activeNote}` : 'Harmonizing'}</span>
                   </div>
                 )}
               </div>
@@ -125,75 +203,132 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
 
             {/* Interactive Deck Controls */}
             <div className="lg:col-span-6 space-y-6">
-              {/* Currently Playing Header */}
+              {/* Currently Playing Header & Master Mute */}
               <div className="border-b border-rich-berry/15 pb-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-bubbly text-xs uppercase tracking-wider text-rich-berry dark:text-star-gold font-bold">
-                    Currently Playing Tune:
-                  </span>
-                  <span className="font-serif-headline font-bold text-plum dark:text-soft-blush text-lg">
-                    “{selectedTune.title}”
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bubbly text-[11px] uppercase tracking-wider text-rich-berry dark:text-star-gold font-bold block">
+                      Currently Selected Melody:
+                    </span>
+                    <span className="font-serif-headline font-bold text-plum dark:text-soft-blush text-xl">
+                      “{currentPattern.name}”
+                    </span>
+                  </div>
+
+                  {/* Visible Master Mute Switch */}
+                  <button
+                    onClick={onToggleMute}
+                    aria-label={isMuted ? 'Unmute music box audio' : 'Mute music box audio'}
+                    aria-pressed={!isMuted}
+                    className={`px-3.5 py-2 rounded-2xl border-2 flex items-center gap-2 font-bubbly text-xs font-bold transition-all cursor-pointer ${
+                      isMuted
+                        ? 'border-rich-berry/30 bg-cream/70 dark:bg-plum-dark text-warm-brown/80 dark:text-cream/80'
+                        : 'border-rich-berry bg-rich-berry text-white shadow-sm'
+                    }`}
+                  >
+                    {isMuted ? (
+                      <>
+                        <VolumeX className="w-4 h-4 text-rich-berry dark:text-star-gold" />
+                        <span>Sound: MUTED</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4 text-star-gold animate-pulse" />
+                        <span>Sound: ON</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div className="flex items-center justify-between text-[11px] font-mono text-warm-brown/70 dark:text-cream/70 mt-2">
-                  <span>01:18</span>
-                  <span className="italic">{selectedTune.description}</span>
-                  <span>03:45</span>
-                </div>
-                <div className="w-full bg-cream dark:bg-plum-dark h-2 rounded-full mt-2 overflow-hidden border border-rich-berry/20">
+
+                <div className="w-full bg-cream dark:bg-plum-dark h-2 rounded-full mt-3 overflow-hidden border border-rich-berry/20">
                   <div
                     className="bg-rich-berry dark:bg-star-gold h-full transition-all duration-300"
-                    style={{ width: isPlaying ? '58%' : '35%' }}
+                    style={{ width: isPlaying ? '65%' : '20%' }}
                   />
                 </div>
               </div>
 
-              {/* Tune Selection Buttons */}
+              {/* 3 Selectable Melody Patterns */}
               <div>
                 <label className="block font-bubbly text-xs text-warm-brown/70 dark:text-cream/70 mb-2 font-bold tracking-wider uppercase">
-                  Select Snooze Frequency
+                  Select Gentle Melody Pattern
                 </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {TUNES.map((tune, index) => {
-                    const isSelected = selectedTune.id === tune.id;
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {MELODY_PATTERNS.map((pattern, index) => {
+                    const isSelected = activePatternIndex === index;
                     return (
                       <button
-                        key={tune.id}
-                        onClick={() => setSelectedTune(tune)}
-                        className={`px-3.5 py-2.5 rounded-xl border-2 font-bubbly text-xs text-left transition-all flex items-center justify-between cursor-pointer ${
+                        key={pattern.id}
+                        onClick={() => handleSelectTune(index)}
+                        className={`p-3 rounded-2xl border-2 font-bubbly text-xs text-left transition-all cursor-pointer ${
                           isSelected
                             ? 'border-rich-berry bg-rich-berry text-white shadow-sm'
                             : 'border-rich-berry/30 bg-cream/70 dark:bg-plum-dark hover:border-rich-berry text-warm-brown dark:text-cream'
                         }`}
                       >
-                        <span className="truncate">
-                          {index + 1}. {tune.title}
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold">{index + 1}. {pattern.name}</span>
+                          <span>♪</span>
+                        </div>
+                        <span
+                          className={`text-[10px] block ${
+                            isSelected ? 'text-star-gold' : 'text-warm-brown/60 dark:text-cream/60'
+                          }`}
+                        >
+                          {pattern.bpm} BPM Cadence
                         </span>
-                        <span aria-hidden="true">{tune.symbol}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Deck Action Buttons: Play/Pause and Wind Up */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Playback Action Buttons: Play, Pause, Stop, Wind Up */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                 <button
-                  onClick={onTogglePlay}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly text-sm font-semibold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
-                  aria-label={isPlaying ? 'Pause Music Box' : 'Play Lullaby Box'}
+                  onClick={handlePlay}
+                  disabled={isPlaying}
+                  className={`py-3 px-3 rounded-2xl font-bubbly text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer ${
+                    isPlaying
+                      ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                      : 'bg-rich-berry text-white hover:bg-rich-berry/90'
+                  }`}
+                  aria-label="Play Lullaby"
                 >
-                  <span aria-hidden="true">{isPlaying ? '⏸️' : '▶️'}</span>
-                  <span>{isPlaying ? 'Pause Music Box' : 'Play Lullaby Box'}</span>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Play</span>
+                </button>
+
+                <button
+                  onClick={handlePause}
+                  disabled={!isPlaying}
+                  className={`py-3 px-3 rounded-2xl font-bubbly text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer ${
+                    !isPlaying
+                      ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                      : 'bg-star-gold text-plum font-bold hover:bg-star-gold/90'
+                  }`}
+                  aria-label="Pause Lullaby"
+                >
+                  <Pause className="w-3.5 h-3.5 fill-current" />
+                  <span>Pause</span>
+                </button>
+
+                <button
+                  onClick={handleStop}
+                  className="py-3 px-3 rounded-2xl border border-rich-berry/30 bg-cream dark:bg-plum-dark text-warm-brown dark:text-cream hover:bg-soft-blush/30 font-bubbly text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  aria-label="Stop Lullaby"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Stop</span>
                 </button>
 
                 <button
                   onClick={handleWindUp}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-star-gold hover:bg-star-gold/90 text-warm-brown font-bubbly text-sm font-semibold flex items-center justify-center gap-2 shadow border border-warm-brown/20 transition-all cursor-pointer"
-                  aria-label="Wind up music box spring"
+                  className="py-3 px-3 rounded-2xl bg-star-gold/30 hover:bg-star-gold/50 border border-star-gold/60 text-warm-brown dark:text-cream font-bubbly text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  aria-label="Wind up music box spring (+25%)"
                 >
-                  <span aria-hidden="true">🌀</span>
-                  <span>Wind Up Spring (+30s)</span>
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Wind (+25%)</span>
                 </button>
               </div>
 
@@ -207,17 +342,17 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({
                   </div>
                   <input
                     type="range"
-                    min={30}
+                    min={25}
                     max={90}
                     value={tempo}
-                    onChange={(e) => setTempo(Number(e.target.value))}
+                    onChange={(e) => handleTempoChange(Number(e.target.value))}
                     aria-label="Tempo slider in beats per minute"
                     className="w-full accent-rich-berry dark:accent-star-gold cursor-pointer"
                   />
                 </div>
                 <div>
                   <div className="flex justify-between mb-1">
-                    <span>Chime Resonance: <strong>Pure Brass &amp; Velvet</strong></span>
+                    <span>Chime Resonance: <strong>Pure Brass &amp; Velvet Envelope</strong></span>
                     <span className="text-rich-berry dark:text-star-gold font-semibold">94%</span>
                   </div>
                   <div className="h-1.5 w-full bg-rich-berry/10 dark:bg-star-gold/10 rounded-full overflow-hidden">
