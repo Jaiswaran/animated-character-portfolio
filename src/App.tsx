@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AnnouncementMarquee } from './components/AnnouncementMarquee';
 import { MainNavigation } from './components/MainNavigation';
 import { HeroSection } from './components/HeroSection';
 import { AboutSection } from './components/AboutSection';
@@ -103,9 +102,6 @@ function ObservatoryContent() {
 
       {/* Chaos Mode Particle Canvas */}
       <ChaosSparkles isActive={isChaosMode} />
-
-      {/* Top Announcement Bar */}
-      <AnnouncementMarquee />
 
       {/* Navigation Header with Lullaby, SFX, Cursor, Chaos, and Theme controls */}
       <MainNavigation
