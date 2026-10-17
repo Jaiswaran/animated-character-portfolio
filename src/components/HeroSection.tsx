@@ -116,21 +116,21 @@ export const HeroSection: React.FC = () => {
             {/* Action Buttons & Status Pill */}
             <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3 pt-2">
               <a
-                href="#lullaby"
+                href="#projects"
                 onClick={() => play('button-click')}
                 className="w-full sm:w-auto px-6 sm:px-7 py-3 sm:py-3.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 active:scale-98"
               >
-                <span>Explore My Dream Lab</span>
+                <span>Explore the Three Worlds</span>
                 <span className="text-star-gold text-lg leading-none" aria-hidden="true">
                   ♫
                 </span>
               </a>
               <a
-                href="#map"
+                href="#projects"
                 onClick={() => play('button-click')}
                 className="w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3.5 rounded-2xl bg-white dark:bg-plum text-warm-brown dark:text-star-gold hover:bg-soft-blush/30 font-bubbly text-sm sm:text-base font-semibold border-2 border-rich-berry/20 shadow-sm hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 active:scale-98"
               >
-                <span>Follow the Dream Trail</span>
+                <span>Choose a Dream Adventure</span>
                 <Sparkles className="w-4 h-4 text-star-gold flex-shrink-0" aria-hidden="true" />
               </a>
               <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-star-gold/20 border border-star-gold/40 text-warm-brown dark:text-cream font-bubbly text-xs shadow-inner">
