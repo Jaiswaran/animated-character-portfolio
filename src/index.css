@@ -1615,3 +1615,11 @@ body { overflow-x: clip; }
   .pip-realistic-art, .pip-eye-tracking, .pip-eye-iris { transition: none !important; }
   .pip-realistic-art, .pip-realistic-stage.is-greeting .pip-realistic-art { transform: none !important; }
 }
+
+
+/* Keep Pip's hero artwork light to paint and put the character in view immediately on mobile. */
+.pip-realistic-art { filter: none; }
+.pip-realistic-aura { filter: blur(14px); opacity: .5; }
+@media (max-width: 1023px) {
+  .pip-realistic-stage { max-height: min(58svh, 520px); }
+}
