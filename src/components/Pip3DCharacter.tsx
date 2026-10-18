@@ -365,7 +365,6 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
     let gazeY = 0;
     let targetX = 0;
     let targetY = 0;
-    let currentTime = 0;
     let lastDrawAt = 0;
     let isInView = true;
     let resizeObserver: ResizeObserver | null = null;
@@ -433,8 +432,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       const drawScene = (time: number) => {
         if (!gl || disposed) return;
         resize();
-        currentTime = time * 0.001;
-        const amount = reducedRef.current ? 1 : 0.16;
+        const amount = reducedRef.current ? 1 : 0.22;
         gazeX += (targetX - gazeX) * amount;
         gazeY += (targetY - gazeY) * amount;
 
@@ -446,7 +444,8 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         gl.uniformMatrix4fv(viewLocation, false, view);
         gl.uniform3f(lightLocation, -2.5, 3.0, 4.2);
 
-        const bob = reducedRef.current ? 0 : Math.sin(currentTime * 1.55) * 0.025;
+        // No perpetual idle bob: the character only animates in response to interaction.
+        const bob = 0;
         const yaw = reducedRef.current ? 0 : gazeX * 0.10;
         const pitch = reducedRef.current ? 0 : -gazeY * 0.06;
         let global = translation(0, bob, 0);
@@ -496,12 +495,20 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
           frameId = null;
           return;
         }
-        // Cap the decorative motion to ~30 FPS to reduce GPU/battery use on phones.
+
+        // Schedule frames only while the eyes are catching up or Pip is waving.
+        // This avoids an idle 30-FPS WebGL loop on the main thread.
         if (time - lastDrawAt >= 1000 / 30) {
           drawScene(time);
           lastDrawAt = time;
         }
-        frameId = window.requestAnimationFrame(animate);
+        const gazeIsMoving = Math.abs(targetX - gazeX) > 0.012 || Math.abs(targetY - gazeY) > 0.012;
+        const waveIsMoving = wavingRef.current && time - waveStartedRef.current < 420;
+        if (gazeIsMoving || waveIsMoving) {
+          frameId = window.requestAnimationFrame(animate);
+        } else {
+          frameId = null;
+        }
       };
       startRef.current = () => {
         if (disposed || frameId !== null || reducedRef.current || !isInView) return;
@@ -517,11 +524,13 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         targetX = clamp(((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2, -1, 1);
         targetY = clamp((0.5 - (event.clientY - rect.top) / Math.max(1, rect.height)) * 2, -1, 1);
         if (reducedRef.current) drawScene(performance.now());
+        else startRef.current();
       };
       const resetGaze = () => {
         targetX = 0;
         targetY = 0;
         if (reducedRef.current) drawScene(performance.now());
+        else startRef.current();
       };
       stage.addEventListener('pointermove', handlePointerMove, { passive: true });
       stage.addEventListener('pointerleave', resetGaze, { passive: true });
