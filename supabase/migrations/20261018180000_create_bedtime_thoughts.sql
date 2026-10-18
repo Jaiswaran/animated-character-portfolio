@@ -17,8 +17,9 @@ create index if not exists bedtime_thoughts_created_at_idx
 alter table public.bedtime_thoughts enable row level security;
 
 grant usage on schema public to anon, authenticated;
+-- Remove broad/default table grants, then restore only the permissions the guestbook uses.
+revoke all privileges on table public.bedtime_thoughts from anon, authenticated;
 grant select, insert on table public.bedtime_thoughts to anon, authenticated;
-revoke update, delete, truncate on table public.bedtime_thoughts from anon, authenticated;
 
 drop policy if exists "Anyone can read bedtime thoughts" on public.bedtime_thoughts;
 create policy "Anyone can read bedtime thoughts"
