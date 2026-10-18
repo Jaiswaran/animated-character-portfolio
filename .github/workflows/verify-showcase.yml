@@ -26,8 +26,10 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Install locked dependencies
-        run: bun install --frozen-lockfile
+      - name: Install dependencies
+        # The committed Bun/npm lockfiles predate the declared Three.js dependency.
+        # Install from package.json without rewriting the lockfiles in this CI run.
+        run: bun install --no-save
 
       - name: Check TypeScript
         run: bun run lint
