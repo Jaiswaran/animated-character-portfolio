@@ -194,20 +194,20 @@ export const HeroSection: React.FC = () => {
               ref={cardRef}
               role="button"
               tabIndex={0}
-              aria-label="Interactive 3D model of Pip. Move the pointer to make Pip's eyes follow you. Press Enter or Space, or tap Pip, to wave hello."
+              aria-label="Say hello to Pip. The floating character's eyes follow your pointer."
               onPointerMove={handlePointerMove}
               onPointerLeave={handlePointerLeave}
               onClick={handleHello}
               onKeyDown={handleCharacterKeyDown}
-              className={`relative w-full max-w-[280px] sm:max-w-md cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-star-gold focus-visible:ring-offset-4 rounded-[48px] ${motionAllowed ? 'transition-transform duration-200 ease-out' : ''}`}
+              className={`pip-character-hit-area relative w-full max-w-[360px] sm:max-w-[520px] cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-star-gold focus-visible:ring-offset-4 ${motionAllowed ? 'transition-transform duration-200 ease-out' : ''}`}
               style={{
                 transform: !motionAllowed
                   ? 'none'
                   : touchBounce
-                  ? 'scale(1.035) translateY(-4px)'
+                  ? 'translateY(-5px) scale(1.015)'
                   : isHovered
-                  ? `perspective(700px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.015, 1.015, 1.015)`
-                  : 'perspective(700px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+                  ? `perspective(1000px) rotateX(${tilt.rotateX * 0.35}deg) rotateY(${tilt.rotateY * 0.35}deg) scale3d(1.01, 1.01, 1.01)`
+                  : 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
               }}
               title="Move the pointer to guide Pip's eyes. Click, tap, or press Enter to wave hello."
             >
@@ -216,25 +216,7 @@ export const HeroSection: React.FC = () => {
                 className={`absolute inset-0 bg-gradient-to-tr from-soft-blush via-star-gold/40 to-dream-lavender rounded-[48px] blur-2xl opacity-75 -z-10 ${motionAllowed ? 'animate-soft-glow' : ''}`}
                 aria-hidden="true"
               />
-              <div className="relative p-3.5 sm:p-5 rounded-[40px] sm:rounded-[48px] bg-white dark:bg-plum shadow-2xl border-4 border-rich-berry/20 dark:border-star-gold/30">
-                <div className="pip-3d-frame rounded-[30px] sm:rounded-[38px] relative">
-                  <Pip3DCharacter motionAllowed={motionAllowed} isWaving={touchBounce} />
-                  <div className="pip-3d-badge" aria-hidden="true">
-                    <span className={`pip-3d-live-dot ${motionAllowed ? 'is-moving' : ''}`} />
-                    <span>Interactive 3D Pip</span>
-                    <span className="pip-3d-badge-divider">•</span>
-                    <span>Eyes follow you</span>
-                  </div>
-                </div>
-
-                {/* Floating Crescent Moon Accent Badge */}
-                <div
-                  className={`absolute -top-3 -left-3 sm:-top-4 sm:-left-4 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-star-gold border-2 border-rich-berry flex items-center justify-center text-rich-berry shadow-lg ${motionAllowed ? 'animate-floating-slow' : ''}`}
-                  aria-hidden="true"
-                >
-                  <span className="text-lg sm:text-xl">🌙</span>
-                </div>
-              </div>
+              <Pip3DCharacter motionAllowed={motionAllowed} isWaving={touchBounce} />
             </div>
           </div>
         </div>
