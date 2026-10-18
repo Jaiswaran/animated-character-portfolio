@@ -465,7 +465,50 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       }
     };
 
+    let lastTouchY: number | null = null;
+    const onRouteTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        lastTouchY = null;
+        return;
+      }
+      lastTouchY = event.touches[0].clientY;
+    };
+
+    const onRouteTouchMove = (event: TouchEvent) => {
+      if (!motionAllowed || event.touches.length !== 1 || lastTouchY === null) return;
+
+      const touchY = event.touches[0].clientY;
+      const delta = lastTouchY - touchY;
+      lastTouchY = touchY;
+      if (Math.abs(delta) < 0.5) return;
+
+      const base = Math.min(1, Math.max(0, targetScrollProgressRef.current));
+      const atStart = delta < 0 && base <= 0.001;
+      const atEnd = delta > 0 && base >= 0.999;
+      if (atStart || atEnd) return;
+
+      // A non-passive listener lets a swipe over the map drive Pip, not the page.
+      event.preventDefault();
+      wheelControlledRef.current = true;
+      if (isDispatchingRef.current || manualModeRef.current) return;
+
+      const clampedDelta = Math.max(-110, Math.min(110, delta));
+      targetScrollProgressRef.current = Math.min(
+        1,
+        Math.max(0, base + clampedDelta / 550)
+      );
+      if (scrollRafRef.current === null) {
+        scrollRafRef.current = requestAnimationFrame(stepSmoothScroll);
+      }
+    };
+
+    const onRouteTouchEnd = () => { lastTouchY = null; };
+
     routeCanvas?.addEventListener('wheel', onRouteWheel, { passive: false });
+    routeCanvas?.addEventListener('touchstart', onRouteTouchStart, { passive: true });
+    routeCanvas?.addEventListener('touchmove', onRouteTouchMove, { passive: false });
+    routeCanvas?.addEventListener('touchend', onRouteTouchEnd, { passive: true });
+    routeCanvas?.addEventListener('touchcancel', onRouteTouchEnd, { passive: true });
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize, { passive: true });
     dialogEl?.addEventListener('scroll', onScroll, { passive: true });
@@ -473,6 +516,10 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     return () => {
       observer?.disconnect();
       routeCanvas?.removeEventListener('wheel', onRouteWheel);
+      routeCanvas?.removeEventListener('touchstart', onRouteTouchStart);
+      routeCanvas?.removeEventListener('touchmove', onRouteTouchMove);
+      routeCanvas?.removeEventListener('touchend', onRouteTouchEnd);
+      routeCanvas?.removeEventListener('touchcancel', onRouteTouchEnd);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       dialogEl?.removeEventListener('scroll', onScroll);
