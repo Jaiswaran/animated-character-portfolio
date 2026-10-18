@@ -21,8 +21,15 @@ export interface NewBedtimeThought {
   stamp: string;
 }
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
-const publishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
+// This project uses only browser-safe Supabase values. They are public by design;
+// RLS, table grants, and database constraints—not secrecy of this key—protect writes.
+const DEFAULT_SUPABASE_URL = 'https://jwaihtrvogxodgqvaeyj.supabase.co';
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_LvDyYpBzZwAG6FQNfMdoeA_BW4YNF8n';
+
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, '');
+const publishableKey = (
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY
+).trim();
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(
