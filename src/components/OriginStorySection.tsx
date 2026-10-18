@@ -55,16 +55,20 @@ const SCENES = [
   },
 ] as const;
 
-function SceneIllustration({ kind, index }: { kind: string; index: number }) {
+function SceneIllustration({ kind, index, onActivateSecret }: { kind: string; index: number; onActivateSecret: () => void }) {
   const roofXs = [55, 150, 245, 340, 435];
   return (
-    <div className={`pip-story-art pip-story-art--${kind}`} aria-hidden="true">
-      <div className="pip-story-moon">☾</div>
-      <span className="pip-story-star star-a">✦</span>
-      <span className="pip-story-star star-b">✧</span>
-      <span className="pip-story-star star-c">·</span>
+    <div className={`pip-story-art pip-story-art--${kind}`}>
+      <div className="pip-story-moon" aria-hidden="true">☾</div>
+      <span className="pip-story-star star-a" aria-hidden="true">✦</span>
+      {kind === 'nursery' ? (
+        <button type="button" className="pip-story-star star-b pip-secret-star" onClick={onActivateSecret} aria-label="Wake Pip's Secret Star" title="A star is still awake">✧</button>
+      ) : (
+        <span className="pip-story-star star-b" aria-hidden="true">✧</span>
+      )}
+      <span className="pip-story-star star-c" aria-hidden="true">·</span>
       {kind === 'delivery' ? (
-        <svg className="pip-route-svg" viewBox="0 0 500 230" role="img" aria-label="" focusable="false">
+        <svg className="pip-route-svg" viewBox="0 0 500 230" aria-hidden="true" focusable="false">
           <path className="pip-route-base" d="M30 155 C70 40 115 46 150 125 S225 190 245 105 S320 25 340 112 S420 190 470 70" />
           <path className="pip-route-flow" d="M30 155 C70 40 115 46 150 125 S225 190 245 105 S320 25 340 112 S420 190 470 70" />
           {roofXs.map((x, i) => (
@@ -76,7 +80,7 @@ function SceneIllustration({ kind, index }: { kind: string; index: number }) {
           <g className="pip-route-courier"><text x="0" y="0" textAnchor="middle">☁</text><text x="0" y="-7" textAnchor="middle" className="pip-route-pip">✦</text></g>
         </svg>
       ) : (
-        <svg className="pip-scene-svg" viewBox="0 0 500 230" focusable="false">
+        <svg className="pip-scene-svg" viewBox="0 0 500 230" aria-hidden="true" focusable="false">
           <path className="pip-art-hill" d="M0 205 Q115 155 220 196 T500 182 V230 H0Z" />
           {kind === 'observatory' && <g className="pip-observatory"><path d="M118 187 V115 Q118 80 155 80 Q192 80 192 115 V187Z"/><path d="M108 117 Q155 42 202 117Z"/><circle cx="155" cy="112" r="22"/><path d="M155 88 V135 M131 112 H179"/></g>}
           {kind === 'lullaby' && <g className="pip-music-box"><rect x="125" y="118" width="145" height="75" rx="12"/><path d="M139 118 L152 82 H243 L257 118Z"/><circle cx="198" cy="151" r="20"/><path d="M198 140 V161 M188 151 H208"/><path className="pip-note note-one" d="M295 90 V55 Q316 48 316 66 V80 M295 60 L316 66"/><path className="pip-note note-two" d="M340 115 V80 Q361 73 361 91 V105 M340 85 L361 91"/></g>}
@@ -98,7 +102,11 @@ function SceneIllustration({ kind, index }: { kind: string; index: number }) {
   );
 }
 
-export const OriginStorySection: React.FC = () => {
+interface OriginStorySectionProps {
+  onOpenSecretStar: () => void;
+}
+
+export const OriginStorySection: React.FC<OriginStorySectionProps> = ({ onOpenSecretStar }) => {
   const [activeScene, setActiveScene] = useState(0);
   const [motionAllowed, setMotionAllowed] = useState(true);
   const sceneRefs = useRef<(HTMLElement | null)[]>([]);
@@ -194,7 +202,7 @@ export const OriginStorySection: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <SceneIllustration kind={scene.kind} index={index} />
+                <SceneIllustration kind={scene.kind} index={index} onActivateSecret={onOpenSecretStar} />
               </div>
             </article>
           ))}
