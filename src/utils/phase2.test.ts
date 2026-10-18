@@ -11,7 +11,14 @@ import {
   calculateRealDurationSeconds,
   getPatternTotalBeats,
 } from './audioSynthesizer.ts';
-import { calculateProgress, getDeliveryMessage } from './routePath.ts';
+import {
+  calculateProgress,
+  computeSectionScrollProgress,
+  getDeliveryMessage,
+  getPointOnRoute,
+  getReachedStationCount,
+  STATION_THRESHOLDS,
+} from './routePath.ts';
 import { calculateTilt } from './tilt.ts';
 import { WebAudioSoundEffects } from './soundEffects.ts';
 import type { SoundEffectType } from './soundEffects.ts';
@@ -87,6 +94,33 @@ test('routePath: getDeliveryMessage reflects status correctly', () => {
 
   const deliveredMsg = getDeliveryMessage('delivered', 'Cloud Nine Spire', 1);
   assert.ok(deliveredMsg.includes('safely tucked into bed'));
+});
+
+test('routePath: getPointOnRoute moves smoothly along the SVG route from start to end', () => {
+  const start = getPointOnRoute(0);
+  const mid = getPointOnRoute(0.5);
+  const end = getPointOnRoute(1);
+
+  assert.equal(start.x, 130);
+  assert.equal(start.y, 265);
+  assert.equal(end.x, 735);
+  assert.equal(end.y, 295);
+  assert.ok(mid.x > start.x && mid.x < end.x);
+  assert.ok(mid.angle >= -24 && mid.angle <= 24);
+});
+
+test('routePath: getReachedStationCount advances monotonically across STATION_THRESHOLDS', () => {
+  assert.equal(getReachedStationCount(0), 0);
+  assert.equal(getReachedStationCount(STATION_THRESHOLDS[0]), 1);
+  assert.equal(getReachedStationCount(STATION_THRESHOLDS[2]), 3);
+  assert.equal(getReachedStationCount(1), 5);
+});
+
+test('routePath: computeSectionScrollProgress maps viewport scroll position to 0..1 and reverses cleanly', () => {
+  assert.equal(computeSectionScrollProgress(800, 750, 900), 0);
+  const mid = computeSectionScrollProgress(300, 750, 900);
+  assert.ok(mid > 0.3 && mid < 0.8);
+  assert.equal(computeSectionScrollProgress(-50, 750, 900), 1);
 });
 
 test('tilt: calculateTilt returns 0 at center and stays bounded within maxDegrees', () => {

@@ -107,9 +107,7 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
               <span className="pip-navigation-title font-serif-headline text-xl lg:text-2xl hidden sm:inline font-bold tracking-tight text-rich-berry dark:text-star-gold leading-none">
                 Pip's Midnight Observatory
               </span>
-              <span className="text-star-gold text-xs hidden md:inline" aria-hidden="true">
-                ★
-              </span>
+              <Sparkles className="text-star-gold w-3.5 h-3.5 hidden md:inline" aria-hidden="true" />
             </div>
             <span className="pip-navigation-subtitle font-bubbly text-[9px] sm:text-[11px] text-warm-brown/70 dark:text-soft-blush/70 tracking-widest uppercase mt-0.5">
               Dept. of Starlight &amp; Slumber

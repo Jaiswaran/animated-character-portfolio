@@ -501,9 +501,9 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
         </div>
 
         <div className="ultimate-showcase-signoff">
-          <span aria-hidden="true">✦</span>
+          <Sparkles className="h-4 w-4 text-star-gold inline-block" aria-hidden="true" />
           <p>Click any invention above to open in the full screen experience.</p>
-          <span aria-hidden="true">✦</span>
+          <Sparkles className="h-4 w-4 text-star-gold inline-block" aria-hidden="true" />
         </div>
       </div>
 
@@ -740,7 +740,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
               {selectedProject.id === 'routes' && (
                 <div className="space-y-6">
                   {/* Reconstructed Panoramic Rooftop Map Component */}
-                  <DreamDeliverySection compact={false} onStatusChange={onDeliveryStatusChange} />
+                  <DreamDeliverySection compact={true} onStatusChange={onDeliveryStatusChange} />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-rich-berry/15 dark:border-white/10">
                     <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-rich-berry">

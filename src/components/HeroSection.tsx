@@ -97,17 +97,17 @@ export const HeroSection: React.FC = () => {
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute top-1/4 left-1/12 text-star-gold opacity-60 text-lg animate-pulse"
+        className="pointer-events-none absolute top-1/4 left-1/12 text-star-gold opacity-60 animate-pulse"
         aria-hidden="true"
       >
-        ✦
+        <Sparkles className="w-4 h-4" />
       </div>
       <div
-        className="pointer-events-none absolute top-1/3 right-1/4 text-star-gold opacity-40 text-base animate-pulse"
+        className="pointer-events-none absolute top-1/3 right-1/4 text-star-gold opacity-40 animate-pulse"
         style={{ animationDelay: '1.5s' }}
         aria-hidden="true"
       >
-        ✧
+        <Sparkles className="w-3.5 h-3.5" />
       </div>
       <div
         className="pointer-events-none absolute bottom-1/4 left-1/3 text-soft-blush opacity-50 text-2xl animate-floating-slow"

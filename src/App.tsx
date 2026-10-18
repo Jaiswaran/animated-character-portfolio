@@ -15,6 +15,7 @@ import { ChaosSparkles } from './components/ChaosSparkles';
 import { CustomCursor } from './components/CustomCursor';
 import { SoundEffectsProvider } from './context/SoundEffectsContext';
 import { ProjectShowcaseSection } from './components/ProjectShowcaseSection';
+import { DreamDeliverySection } from './components/DreamDeliverySection';
 import { GlowMode } from './utils/nightlight';
 import { useLullabyAudio } from './hooks/useLullabyAudio';
 
@@ -132,6 +133,9 @@ function ObservatoryContent() {
           deliveryStatus={deliveryStatus}
           onDeliveryStatusChange={setDeliveryStatus}
         />
+
+        {/* 6. Scroll-Driven Dream Delivery Routes Across the Rooftops */}
+        <DreamDeliverySection onStatusChange={setDeliveryStatus} />
 
         {/* 7. Starlight Ledger Guestbook & Mechanical Odometer */}
         <GuestbookSection />

@@ -68,7 +68,9 @@ export const FooterSection: React.FC = () => {
         </p>
 
         <section className="pip-secret-check-in" aria-labelledby="pip-secret-question">
-          <div className="pip-secret-check-in-star" aria-hidden="true">✦</div>
+          <div className="pip-secret-check-in-star flex items-center justify-center" aria-hidden="true">
+            <Sparkles className="w-4 h-4 text-star-gold" />
+          </div>
           <h2 id="pip-secret-question">One last thing before you drift away…</h2>
           <p>Did you find Pip's Secret Star?</p>
           <div className="pip-secret-check-in-actions">
@@ -81,7 +83,8 @@ export const FooterSection: React.FC = () => {
           </div>
           {secretAnswer === 'found' && (
             <p className="pip-secret-answer" role="status">
-              <span aria-hidden="true">✧</span> Well done, little stargazer. That tiny light was waiting just for you.
+              <Sparkles className="w-3.5 h-3.5 inline-block mr-1 text-star-gold" aria-hidden="true" />
+              Well done, little stargazer. That tiny light was waiting just for you.
             </p>
           )}
           {secretAnswer === 'clue' && (
