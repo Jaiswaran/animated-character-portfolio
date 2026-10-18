@@ -168,15 +168,24 @@ function createProgram(gl: WebGLRenderingContext) {
   const vertexSource = `
     attribute vec3 aPosition;
     attribute vec3 aNormal;
+    attribute vec3 aColor;
+    attribute float aEmissive;
+    uniform float uUseVertexColor;
+    uniform vec3 uColor;
+    uniform float uEmissive;
     uniform mat4 uProjection;
     uniform mat4 uView;
     uniform mat4 uModel;
     varying vec3 vNormal;
     varying vec3 vWorldPosition;
+    varying vec3 vColor;
+    varying float vEmissive;
     void main() {
       vec4 world = uModel * vec4(aPosition, 1.0);
       vWorldPosition = world.xyz;
       vNormal = normalize(mat3(uModel) * aNormal);
+      vColor = mix(uColor, aColor, uUseVertexColor);
+      vEmissive = mix(uEmissive, aEmissive, uUseVertexColor);
       gl_Position = uProjection * uView * world;
     }
   `;
@@ -187,6 +196,8 @@ function createProgram(gl: WebGLRenderingContext) {
     uniform float uEmissive;
     varying vec3 vNormal;
     varying vec3 vWorldPosition;
+    varying vec3 vColor;
+    varying float vEmissive;
     void main() {
       vec3 normal = normalize(vNormal);
       vec3 lightDirection = normalize(uLightPosition - vWorldPosition);
@@ -194,8 +205,8 @@ function createProgram(gl: WebGLRenderingContext) {
       float diffuse = max(dot(normal, lightDirection), 0.0);
       float specular = pow(max(dot(reflect(-lightDirection, normal), viewDirection), 0.0), 24.0) * 0.22;
       float lighting = 0.46 + diffuse * 0.63;
-      vec3 color = uColor * lighting + vec3(specular);
-      color += uColor * uEmissive;
+      vec3 color = vColor * lighting + vec3(specular);
+      color += vColor * vEmissive;
       gl_FragColor = vec4(min(color, vec3(1.0)), 1.0);
     }
   `;
@@ -214,6 +225,54 @@ function createProgram(gl: WebGLRenderingContext) {
     throw new Error(message);
   }
   return program;
+}
+
+function bakeStaticParts(parts: Part[], sphere: ReturnType<typeof createSphere>) {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const colors: number[] = [];
+  const emissives: number[] = [];
+  const indices: number[] = [];
+
+  for (const part of parts) {
+    const offset = positions.length / 3;
+    const angle = part.rotationZ ?? 0;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const [sx, sy, sz] = part.scale;
+
+    for (let i = 0; i < sphere.positions.length; i += 3) {
+      const rawX = sphere.positions[i] * sx;
+      const rawY = sphere.positions[i + 1] * sy;
+      const rawZ = sphere.positions[i + 2] * sz;
+      positions.push(
+        part.position[0] + rawX * cos - rawY * sin,
+        part.position[1] + rawX * sin + rawY * cos,
+        part.position[2] + rawZ
+      );
+
+      // Inverse-scale normals before applying each part's Z rotation.
+      const nx = sphere.normals[i] / sx;
+      const ny = sphere.normals[i + 1] / sy;
+      const nz = sphere.normals[i + 2] / sz;
+      const rotatedX = nx * cos - ny * sin;
+      const rotatedY = nx * sin + ny * cos;
+      const length = Math.hypot(rotatedX, rotatedY, nz) || 1;
+      normals.push(rotatedX / length, rotatedY / length, nz / length);
+      colors.push(part.color[0], part.color[1], part.color[2]);
+      emissives.push(part.emissive ?? 0);
+    }
+
+    for (const index of sphere.indices) indices.push(index + offset);
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    colors: new Float32Array(colors),
+    emissives: new Float32Array(emissives),
+    indices: new Uint16Array(indices),
+  };
 }
 
 const cream: Vec3 = [0.98, 0.91, 0.80];
@@ -379,7 +438,15 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       const positionBuffer = gl.createBuffer();
       const normalBuffer = gl.createBuffer();
       const indexBuffer = gl.createBuffer();
-      if (!positionBuffer || !normalBuffer || !indexBuffer) throw new Error('Could not allocate the character geometry.');
+      const staticPositionBuffer = gl.createBuffer();
+      const staticNormalBuffer = gl.createBuffer();
+      const colorBuffer = gl.createBuffer();
+      const emissiveBuffer = gl.createBuffer();
+      const staticIndexBuffer = gl.createBuffer();
+      if (!positionBuffer || !normalBuffer || !indexBuffer || !staticPositionBuffer ||
+          !staticNormalBuffer || !colorBuffer || !emissiveBuffer || !staticIndexBuffer) {
+        throw new Error('Could not allocate the character geometry.');
+      }
 
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, sphere.positions, gl.STATIC_DRAW);
@@ -396,8 +463,24 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       const colorLocation = gl.getUniformLocation(program, 'uColor');
       const lightLocation = gl.getUniformLocation(program, 'uLightPosition');
       const emissiveLocation = gl.getUniformLocation(program, 'uEmissive');
+      const useVertexColorLocation = gl.getUniformLocation(program, 'uUseVertexColor');
+      const colorAttribute = gl.getAttribLocation(program, 'aColor');
+      const emissiveAttribute = gl.getAttribLocation(program, 'aEmissive');
 
       const parts = makeCharacterParts();
+      const staticParts = parts.filter((part) => !part.gaze);
+      const gazeParts = parts.filter((part) => Boolean(part.gaze));
+      const baked = bakeStaticParts(staticParts, sphere);
+      gl.bindBuffer(gl.ARRAY_BUFFER, staticPositionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, baked.positions, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, staticNormalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, baked.normals, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, baked.colors, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, emissiveBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, baked.emissives, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, staticIndexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, baked.indices, gl.STATIC_DRAW);
       const projection = perspective(42 * Math.PI / 180, 0.82, 0.1, 30);
       const view = lookAt([0, 0.20, 5.65], [0, 0.20, 0], [0, 1, 0]);
 
@@ -444,13 +527,45 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         gl.uniformMatrix4fv(viewLocation, false, view);
         gl.uniform3f(lightLocation, -2.5, 3.0, 4.2);
 
-        // No perpetual idle bob: the character only animates in response to interaction.
-        const bob = 0;
+        // The static character is baked into one indexed mesh: one main draw call,
+        // with only six small eye pieces drawn separately so their gaze can move.
         const yaw = reducedRef.current ? 0 : gazeX * 0.10;
         const pitch = reducedRef.current ? 0 : -gazeY * 0.06;
-        let global = translation(0, bob, 0);
+        let global = identity();
         global = multiply(global, rotateY(yaw));
         global = multiply(global, rotateX(pitch));
+
+        gl.uniform1f(useVertexColorLocation, 1);
+        gl.uniform3f(colorLocation, 1, 1, 1);
+        gl.uniform1f(emissiveLocation, 0);
+        gl.uniformMatrix4fv(modelLocation, false, global);
+        gl.bindBuffer(gl.ARRAY_BUFFER, staticPositionBuffer);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, staticNormalBuffer);
+        gl.enableVertexAttribArray(normalLocation);
+        gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.enableVertexAttribArray(colorAttribute);
+        gl.vertexAttribPointer(colorAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, emissiveBuffer);
+        gl.enableVertexAttribArray(emissiveAttribute);
+        gl.vertexAttribPointer(emissiveAttribute, 1, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, staticIndexBuffer);
+        gl.drawElements(gl.TRIANGLES, baked.indices.length, gl.UNSIGNED_SHORT, 0);
+
+        gl.uniform1f(useVertexColorLocation, 0);
+        gl.disableVertexAttribArray(colorAttribute);
+        gl.vertexAttrib3f(colorAttribute, 1, 1, 1);
+        gl.disableVertexAttribArray(emissiveAttribute);
+        gl.vertexAttrib1f(emissiveAttribute, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.enableVertexAttribArray(normalLocation);
+        gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
         const waving = wavingRef.current;
         const waveProgress = clamp((time - waveStartedRef.current) / 420, 0, 1);
@@ -461,26 +576,18 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         handGroup = multiply(handGroup, rotateZ(waveAngle));
         handGroup = multiply(handGroup, translation(-0.62, -0.08, -0.16));
 
-        for (const part of parts) {
+        for (const part of gazeParts) {
           let x = part.position[0];
           let y = part.position[1];
           let z = part.position[2];
-          if (part.gaze) {
-            const side = part.gaze === 'left' ? -1 : 1;
-            x += gazeX * 0.048;
-            y -= gazeY * 0.045;
-            z += Math.max(0, Math.abs(gazeX) * 0.006);
-            // Tiny inward tracking keeps both pupils looking toward the same point.
-            x += side * (gazeX * 0.004);
-          }
+          const side = part.gaze === 'left' ? -1 : 1;
+          x += gazeX * 0.048 + side * gazeX * 0.004;
+          y -= gazeY * 0.045;
+          z += Math.max(0, Math.abs(gazeX) * 0.006);
 
           let local = translation(x, y, z);
-          if (part.rotationZ) local = multiply(local, rotateZ(part.rotationZ));
           local = multiply(local, scaling(part.scale[0], part.scale[1], part.scale[2]));
-          let model = global;
-          if (part.group === 'hand') model = multiply(model, handGroup);
-          model = multiply(model, local);
-
+          const model = multiply(global, local);
           gl.uniformMatrix4fv(modelLocation, false, model);
           gl.uniform3f(colorLocation, part.color[0], part.color[1], part.color[2]);
           gl.uniform1f(emissiveLocation, part.emissive ?? 0);
@@ -575,6 +682,11 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         gl?.deleteBuffer(positionBuffer);
         gl?.deleteBuffer(normalBuffer);
         gl?.deleteBuffer(indexBuffer);
+        gl?.deleteBuffer(staticPositionBuffer);
+        gl?.deleteBuffer(staticNormalBuffer);
+        gl?.deleteBuffer(colorBuffer);
+        gl?.deleteBuffer(emissiveBuffer);
+        gl?.deleteBuffer(staticIndexBuffer);
         gl?.deleteProgram(program);
         drawRef.current = () => undefined;
         startRef.current = () => undefined;
