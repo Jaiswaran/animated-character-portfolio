@@ -219,9 +219,6 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       cancelAnimationFrame(parcelAnimationFrameRef.current);
       parcelAnimationFrameRef.current = null;
     }
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
 
     play('dream-dispatch');
     setActiveStationIndex(targetIndex);
