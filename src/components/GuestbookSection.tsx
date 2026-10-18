@@ -6,23 +6,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DreamEntry, formatOdometerDigits, validateDreamInput } from '../utils/counter';
 import { useSoundEffects } from '../hooks/useSoundEffects';
-
-const INITIAL_ENTRIES: DreamEntry[] = [];
+import {
+  formatBedtimeThoughtTimestamp,
+  isSupabaseConfigured,
+  listBedtimeThoughts,
+  submitBedtimeThought,
+} from '../utils/supabaseRest';
 
 export const GuestbookSection: React.FC = () => {
   const { play } = useSoundEffects();
-  const GUESTBOOK_STORAGE_KEY = 'pip_guestbook_ledger';
   const VISIT_STORAGE_KEY = 'pip_observatory_local_visits';
 
-  const [entries, setEntries] = useState<DreamEntry[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(GUESTBOOK_STORAGE_KEY);
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
-    return INITIAL_ENTRIES;
-  });
+  // Shared entries come from Supabase instead of per-browser localStorage.
+  const [entries, setEntries] = useState<DreamEntry[]>([]);
+  const [databaseStatus, setDatabaseStatus] = useState<'loading' | 'connected' | 'unconfigured' | 'error'>(
+    () => isSupabaseConfigured() ? 'loading' : 'unconfigured'
+  );
+  const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [entriesLoadError, setEntriesLoadError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [selectedStamp, setSelectedStamp] = useState('⭐');
@@ -52,38 +54,85 @@ export const GuestbookSection: React.FC = () => {
   }, []);
   const [justSubmittedId, setJustSubmittedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!isSupabaseConfigured()) {
+      setDatabaseStatus('unconfigured');
+      return () => { active = false; };
+    }
+
+    setIsLoadingEntries(true);
+    void listBedtimeThoughts(50)
+      .then((rows) => {
+        if (!active) return;
+        setEntries(rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          message: row.thought,
+          stamp: row.stamp,
+          timestamp: formatBedtimeThoughtTimestamp(row.created_at),
+        })));
+        setDatabaseStatus('connected');
+        setEntriesLoadError(null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDatabaseStatus('error');
+        setEntriesLoadError('The shared ledger could not be loaded. Please refresh and try again.');
+      })
+      .finally(() => {
+        if (active) setIsLoadingEntries(false);
+      });
+
+    return () => { active = false; };
+  }, []);
+
   const stamps = ['⭐', '☁️', '🦄', '🎀'];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validation = validateDreamInput(name, message);
     if (!validation.isValid) {
       setFormError(validation.error || 'Please fill in both fields.');
       return;
     }
+    if (!isSupabaseConfigured()) {
+      setFormError('The shared bedtime journal is not connected yet. Please try again later.');
+      setDatabaseStatus('unconfigured');
+      return;
+    }
+    if (isSubmitting) return;
+
     setFormError(null);
-
-    play('guestbook-submit');
-
-    const newId = `entry-${Date.now()}`;
-    const newEntry: DreamEntry = {
-      id: newId,
-      name: name.trim(),
-      message: message.trim(),
-      stamp: selectedStamp,
-      timestamp: 'Just now',
-    };
-
-    const updatedEntries = [newEntry, ...entries];
-    setEntries(updatedEntries);
-    setJustSubmittedId(newId);
+    setIsSubmitting(true);
 
     try {
-      localStorage.setItem(GUESTBOOK_STORAGE_KEY, JSON.stringify(updatedEntries.slice(0, 50)));
-    } catch {}
+      const saved = await submitBedtimeThought({
+        name: name.trim(),
+        thought: message.trim(),
+        stamp: selectedStamp,
+      });
+      const newEntry: DreamEntry = {
+        id: saved.id,
+        name: saved.name,
+        message: saved.thought,
+        stamp: saved.stamp,
+        timestamp: formatBedtimeThoughtTimestamp(saved.created_at),
+      };
 
-    setName('');
-    setMessage('');
+      setEntries((current) => [newEntry, ...current.filter((entry) => entry.id !== newEntry.id)].slice(0, 50));
+      setJustSubmittedId(newEntry.id);
+      setName('');
+      setMessage('');
+      setDatabaseStatus('connected');
+      setEntriesLoadError(null);
+      play('guestbook-submit');
+    } catch {
+      setFormError('Pip could not save your bedtime thought. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSelectStamp = (stamp: string) => {
@@ -181,17 +230,28 @@ export const GuestbookSection: React.FC = () => {
                 </div>
               </div>
 
+              {databaseStatus === 'unconfigured' && (
+                <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-amber-900 font-semibold text-xs">
+                  The shared journal is being connected. You can leave a thought once it is ready.
+                </p>
+              )}
+              {databaseStatus === 'loading' && (
+                <p role="status" className="text-warm-brown/70 dark:text-cream/70 text-xs">
+                  Connecting to Pip’s shared dream journal…
+                </p>
+              )}
               {formError && (
-                <p className="text-red-500 font-semibold text-xs animate-shake">
+                <p role="alert" className="text-red-500 font-semibold text-xs animate-shake">
                   {formError}
                 </p>
               )}
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                disabled={!isSupabaseConfigured() || isSubmitting}
+                className="w-full py-3.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-md"
               >
-                <span>Pin into Pip's Dream Journal</span>
+                <span>{isSubmitting ? 'Saving your thought…' : "Pin into Pip's Dream Journal"}</span>
                 <span aria-hidden="true">✨</span>
               </button>
             </form>
@@ -204,16 +264,31 @@ export const GuestbookSection: React.FC = () => {
                 Recent Observatory Entries
               </span>
               <span className="text-rich-berry dark:text-star-gold font-medium">
-                Saved on this browser · not shared across visitors 🛰️
+                {databaseStatus === 'connected'
+                  ? 'Shared with every visitor · saved in Supabase 🛰️'
+                  : databaseStatus === 'loading'
+                    ? 'Connecting to the shared ledger…'
+                    : 'Shared ledger connection required 🛰️'}
               </span>
             </div>
 
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {entriesLoadError && (
+                <p role="status" className="rounded-xl bg-soft-blush/40 px-4 py-3 text-center text-sm text-rich-berry dark:text-star-gold">
+                  {entriesLoadError}
+                </p>
+              )}
               {entries.length === 0 ? (
                 <div className="p-8 rounded-2xl bg-white/60 dark:bg-plum/60 border border-dashed border-rich-berry/20 text-center">
                   <span className="text-3xl block mb-2">📜</span>
                   <p className="font-bubbly text-sm text-warm-brown/70 dark:text-cream/70">
-                    The ledger is waiting for its first starlight whisper tonight.
+                    {isLoadingEntries
+                      ? 'Opening the shared starlight ledger…'
+                      : databaseStatus === 'unconfigured'
+                        ? 'The shared ledger is not connected yet.'
+                        : entriesLoadError
+                          ? 'The shared ledger could not be reached just now.'
+                          : 'The ledger is waiting for its first starlight whisper tonight.'}
                   </p>
                 </div>
               ) : (
