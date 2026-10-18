@@ -1144,3 +1144,11 @@ html.dark body,
   .pip-story-section .pip-route-courier { transform: none; }
   .pip-story-start:hover, .pip-scene-controls button:hover { transform: none; }
 }
+
+
+/* Active chapters softly come into focus as the reader scrolls. */
+.pip-story-card { opacity: .86; transform: translateY(14px) scale(.99); transition: opacity .55s ease, transform .55s cubic-bezier(.2,.8,.2,1), border-color .4s ease, box-shadow .4s ease; }
+.pip-story-scene.is-active .pip-story-card { opacity: 1; transform: translateY(0) scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .pip-story-card, .pip-story-scene.is-active .pip-story-card { opacity: 1; transform: none; }
+}

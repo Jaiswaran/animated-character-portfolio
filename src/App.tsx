@@ -113,10 +113,13 @@ function ObservatoryContent() {
         {/* 1. Hero Section with pointer-responsive character reaction */}
         <HeroSection />
 
-        {/* 2. About Pip (Nursery Staff Dossier) */}
+        {/* 2. Pip's complete five-scene story is the heart of the portfolio. */}
+        <OriginStorySection />
+
+        {/* 3. About Pip: the junior dream engineer behind the journey. */}
         <AboutSection />
 
-        {/* 3. Celestial Projects Showcase Hub with imaginative interactive cards */}
+        {/* 4. Explore the interactive inventions that bring the story to life. */}
         <ProjectShowcaseSection
           lullaby={lullaby}
           activeGlow={activeGlow}
@@ -124,9 +127,6 @@ function ObservatoryContent() {
           deliveryStatus={deliveryStatus}
           onDeliveryStatusChange={setDeliveryStatus}
         />
-
-        {/* Character story remains separate from the three interactive project worlds. */}
-        <OriginStorySection />
 
         {/* 7. Starlight Ledger Guestbook & Mechanical Odometer */}
         <GuestbookSection onOpenEasterEgg={() => setIsEasterEggOpen(true)} />

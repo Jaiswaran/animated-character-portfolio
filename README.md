@@ -1,9 +1,13 @@
 # Pip's Midnight Observatory ✦
 
-A whimsical, early-web-inspired interactive portfolio centered on Pip, a junior dream engineer. The site contains three small inventions that visitors can open and explore.
+A whimsical, early-web-inspired interactive portfolio centered on Pip, a junior dream engineer. The five-scene story—Observatory, Lullaby Lab, Nightlight Workshop, Rooftop Delivery, and Nursery—connects the portfolio's animated worlds into one journey. Each scene has fewer than 150 words, a keyboard-accessible chapter guide, animated SVG artwork, and a reduced-motion presentation.
 
 **Live site:** https://animated-character-portfolio-a18l.vercel.app  
 **Source:** https://github.com/Jaiswaran/animated-character-portfolio
+
+## Pip's complete story
+
+Follow the dream from its first flicker to its safe delivery. Scroll through the five scenes or use the persistent chapter controls to jump directly to a scene. Scene progress updates as the reader moves; all essential story information is visible without audio, and system reduced-motion preferences disable continuous motion and smooth scrolling.
 
 ## The three inventions
 
