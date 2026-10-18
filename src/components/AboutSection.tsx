@@ -74,6 +74,8 @@ export const AboutSection: React.FC = () => {
               <div className="relative overflow-hidden rounded-2xl border-2 border-rich-berry/30 bg-cream">
                 <img
                   src="/assets/pip_portrait.png"
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = PIP_PORTRAIT_FALLBACK;
                   }}

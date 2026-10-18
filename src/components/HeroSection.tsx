@@ -219,6 +219,8 @@ export const HeroSection: React.FC = () => {
                 <div className="overflow-hidden rounded-[30px] sm:rounded-[38px] relative bg-gradient-to-b from-cream to-soft-blush/30">
                   <img
                     src="/assets/pip_avatar_cloud.png"
+                    fetchPriority="high"
+                    decoding="async"
                     alt="Pip the adorable skull baby in star nightcap and peach heart pajamas waving from atop a fluffy cloud"
                     className={`w-full h-auto object-cover transform ${motionAllowed ? 'hover:scale-105 transition-transform duration-700 animate-floating' : ''}`}
                   />

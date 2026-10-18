@@ -83,16 +83,16 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-cream/95 backdrop-blur-md border-b-2 border-rich-berry/20 dark:bg-plum/95 dark:border-star-gold/20 transition-colors">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
+    <header className="pip-main-navigation sticky top-0 z-40 bg-cream/95 backdrop-blur-md border-b-2 border-rich-berry/20 dark:bg-plum/95 dark:border-star-gold/20 transition-colors">
+      <div className="pip-main-navigation-inner max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
         {/* Logo and branding */}
         <a
           href="#"
           onClick={() => play('nav-click')}
-          className="flex items-center gap-2 sm:gap-3 group focus:outline-none flex-shrink-0"
+          className="pip-navigation-brand flex items-center gap-2 sm:gap-3 group focus:outline-none flex-shrink-0"
           aria-label="Pip's Midnight Observatory home"
         >
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-soft-blush/60 border-2 border-rich-berry flex items-center justify-center text-rich-berry shadow-sm group-hover:rotate-12 transition-transform dark:bg-plum-dark dark:border-star-gold dark:text-star-gold flex-shrink-0">
+          <div className="pip-navigation-logo w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-soft-blush/60 border-2 border-rich-berry flex items-center justify-center text-rich-berry shadow-sm group-hover:rotate-12 transition-transform dark:bg-plum-dark dark:border-star-gold dark:text-star-gold flex-shrink-0">
             <span className="text-base sm:text-lg leading-none select-none" aria-hidden="true">
               🌙
             </span>
@@ -100,17 +100,17 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-1">
               {/* Responsive Title: "Pip's Observatory" on small mobile, full name on sm+ */}
-              <span className="font-serif-headline text-lg sm:hidden font-bold tracking-tight text-rich-berry dark:text-star-gold leading-none">
+              <span className="pip-navigation-title font-serif-headline text-lg sm:hidden font-bold tracking-tight text-rich-berry dark:text-star-gold leading-none">
                 Pip's Observatory
               </span>
-              <span className="font-serif-headline text-xl lg:text-2xl hidden sm:inline font-bold tracking-tight text-rich-berry dark:text-star-gold leading-none">
+              <span className="pip-navigation-title font-serif-headline text-xl lg:text-2xl hidden sm:inline font-bold tracking-tight text-rich-berry dark:text-star-gold leading-none">
                 Pip's Midnight Observatory
               </span>
               <span className="text-star-gold text-xs hidden md:inline" aria-hidden="true">
                 ★
               </span>
             </div>
-            <span className="font-bubbly text-[9px] sm:text-[11px] text-warm-brown/70 dark:text-soft-blush/70 tracking-widest uppercase mt-0.5">
+            <span className="pip-navigation-subtitle font-bubbly text-[9px] sm:text-[11px] text-warm-brown/70 dark:text-soft-blush/70 tracking-widest uppercase mt-0.5">
               Dept. of Starlight &amp; Slumber
             </span>
           </div>
@@ -134,7 +134,7 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
         </nav>
 
         {/* Header Controls */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <div className="pip-navigation-controls flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Lullaby Music Box Toggle */}
           <button
             onClick={handleLullabyToggle}

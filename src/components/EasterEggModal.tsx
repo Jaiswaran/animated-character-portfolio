@@ -1,11 +1,12 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * A quiet, replayable secret-star reveal. The interaction is visual and textual:
+ * it never requires audio, canvas confetti, or another animation dependency.
  */
-
 import React, { useEffect, useRef } from 'react';
-import { X, Sparkles, Shield, Heart } from 'lucide-react';
-import { useSoundEffects } from '../hooks/useSoundEffects';
+import { X, Heart, Sparkles } from 'lucide-react';
 
 interface EasterEggModalProps {
   isOpen: boolean;
@@ -13,159 +14,113 @@ interface EasterEggModalProps {
 }
 
 export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose }) => {
-  const { play } = useSoundEffects();
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  const handleClose = () => {
-    play('easter-egg-close');
-    onClose();
-  };
-
-  // Keyboard accessibility: ESC key handler & focus trap
   useEffect(() => {
     if (!isOpen) return;
 
-    // Focus the primary dismiss button on mount
-    closeButtonRef.current?.focus();
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleClose();
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    const close = () => onCloseRef.current();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-
-  // Mini starry burst celebration on canvas
-  useEffect(() => {
-    if (!isOpen) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-
-    const colors = ['#f3cf75', '#f1c9d6', '#d9c8ef', '#ffffff', '#ffd1dc'];
-    const stars = Array.from({ length: 36 }, () => {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 3 + 1;
-      return {
-        x: canvas.width / 2,
-        y: canvas.height / 2 - 20,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        size: Math.random() * 4 + 2,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: 1,
-      };
-    });
-
-    let frameId: number;
-    const renderCelebration = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let alive = false;
-      stars.forEach((s) => {
-        s.x += s.vx;
-        s.y += s.vy;
-        s.alpha -= 0.015;
-        if (s.alpha > 0) {
-          alive = true;
-          ctx.fillStyle = s.color;
-          ctx.globalAlpha = Math.max(0, s.alpha);
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-      ctx.globalAlpha = 1;
-      if (alive) {
-        frameId = requestAnimationFrame(renderCelebration);
-      }
-    };
-
-    renderCelebration();
-    return () => {
-      cancelAnimationFrame(frameId);
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const close = () => onCloseRef.current();
+
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="easter-egg-title"
-      className="fixed inset-0 z-50 bg-plum/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
-      onClick={handleClose}
+      className="pip-secret-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) close();
+      }}
     >
-      <div
+      <section
         ref={modalRef}
-        className="bg-cream dark:bg-plum border-4 border-dashed border-star-gold rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl relative overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="pip-secret-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pip-secret-title"
+        aria-describedby="pip-secret-copy"
+        tabIndex={-1}
       >
-        {/* Celebration Starlight Canvas Overlay */}
-        <canvas
-          ref={canvasRef}
-          className="pointer-events-none absolute inset-0 w-full h-full z-0"
-          aria-hidden="true"
-        />
-
-        {/* Close Button with ESC key label */}
         <button
-          onClick={handleClose}
-          aria-label="Close secret dialog (Press Escape)"
-          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-soft-blush/60 dark:bg-plum-dark text-warm-brown dark:text-cream font-bold text-sm flex items-center justify-center hover:bg-soft-blush transition-colors cursor-pointer z-10"
+          ref={closeButtonRef}
+          type="button"
+          onClick={close}
+          className="pip-secret-close"
+          aria-label="Close Pip's secret star message"
         >
-          <X className="w-4 h-4" aria-hidden="true" />
+          <X aria-hidden="true" size={18} />
         </button>
 
-        <div className="relative z-10">
-          <div className="text-4xl mb-2 flex items-center justify-center gap-2" aria-hidden="true">
-            <Sparkles className="w-6 h-6 text-star-gold animate-bounce" />
-            <span>👶</span>
-            <Sparkles className="w-6 h-6 text-star-gold animate-bounce" style={{ animationDelay: '0.2s' }} />
-          </div>
-
-          <h3
-            id="easter-egg-title"
-            className="font-serif-headline text-2xl font-bold text-plum dark:text-star-gold mb-2"
-          >
-            You Found Pip's Secret Pillow!
-          </h3>
-
-          <p className="font-body text-xs text-warm-brown/90 dark:text-cream/90 leading-relaxed mb-4">
-            Pip peeked out of his blanket fort to whisper:{' '}
-            <em className="font-serif-headline text-rich-berry dark:text-soft-blush block mt-1">
-              “Thank you for visiting my observatory! May your bugs be few and your slumber be sweet.”
-            </em>
-          </p>
-
-          <div className="p-3 bg-star-gold/25 rounded-2xl text-xs font-bubbly text-rich-berry dark:text-star-gold mb-5 border border-star-gold/50 flex items-center justify-center gap-2 shadow-inner">
-            <Shield className="w-4 h-4 text-star-gold" />
-            <span className="font-bold">Special Buff: +100 Sleepiness &amp; Dream Shield 🛡️</span>
-          </div>
-
-          <div className="flex gap-2 justify-center">
-            <button
-              ref={closeButtonRef}
-              onClick={handleClose}
-              className="px-6 py-2.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5"
-            >
-              <Heart className="w-3.5 h-3.5 fill-current" />
-              <span>Tuck Pip Back In 💤</span>
-            </button>
-          </div>
+        <div className="pip-secret-sky" aria-hidden="true">
+          <span className="pip-secret-orbit orbit-one" />
+          <span className="pip-secret-orbit orbit-two" />
+          <span className="pip-secret-waking-star">✦</span>
+          <span className="pip-secret-sleeper">☾</span>
+          <Sparkles className="pip-secret-sparkle sparkle-one" size={20} />
+          <Sparkles className="pip-secret-sparkle sparkle-two" size={16} />
         </div>
-      </div>
+
+        <p className="pip-secret-eyebrow">A LITTLE SECRET, JUST FOR YOU</p>
+        <h2 id="pip-secret-title">You found Pip's Secret Star</h2>
+        <p id="pip-secret-copy" className="pip-secret-copy">
+          The last star stayed awake to keep watch over every dream. Your visit makes it glow a little brighter.
+        </p>
+        <div className="pip-secret-whisper" role="note">
+          <span className="pip-secret-waking-pip" aria-hidden="true">☁️</span>
+          <p>
+            Pip stirs, opens one sleepy eye, and whispers:
+            <em>“May your heart feel warm, your dreams feel safe, and tomorrow bring you something wonderful.”</em>
+          </p>
+        </div>
+        <button type="button" className="pip-secret-done" onClick={close}>
+          <Heart size={15} aria-hidden="true" />
+          Let Pip sleep again
+        </button>
+        <p className="pip-secret-replay">The star will be waiting if you want to visit again.</p>
+      </section>
     </div>
   );
 };
