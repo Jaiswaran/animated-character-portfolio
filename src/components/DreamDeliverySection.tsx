@@ -168,6 +168,8 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 }) => {
   const { play } = useSoundEffects();
   const sectionRef = useRef<HTMLElement | null>(null);
+  const routeCanvasRef = useRef<HTMLDivElement | null>(null);
+  const wheelControlledRef = useRef(false);
   const activeRoutePathRef = useRef<SVGPathElement | null>(null);
   const glowRoutePathRef = useRef<SVGPathElement | null>(null);
   const pipGroupRef = useRef<SVGGElement | null>(null);
@@ -391,17 +393,21 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       const current = currentProgressRef.current;
       const diff = target - current;
 
-      if (Math.abs(diff) < 0.003 || Math.abs(diff) > 0.22) {
+      if (Math.abs(diff) < 0.003) {
         syncScrollMilestones(target);
         return;
       }
 
-      const next = current + diff * 0.52;
+      // Ease both small and large wheel deltas instead of jumping on fast scrolls.
+      const next = current + diff * 0.42;
       syncScrollMilestones(next);
       scrollRafRef.current = requestAnimationFrame(stepSmoothScroll);
     };
 
     const scheduleScrollSync = (fromUserScroll: boolean) => {
+      // Once a visitor scrolls directly over the route, the map owns that gesture.
+      // Normal page/dialog scrolling resumes at route boundaries or after Reset.
+      if (wheelControlledRef.current) return;
       if (isDispatchingRef.current) return;
       if (fromUserScroll && manualModeRef.current) {
         manualModeRef.current = false;
@@ -424,12 +430,49 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     const onResize = () => scheduleScrollSync(false);
 
     const dialogEl = sectionEl.closest('[role="dialog"]');
+    const routeCanvas = routeCanvasRef.current;
+
+    const onRouteWheel = (event: WheelEvent) => {
+      if (!motionAllowed) return;
+
+      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? event.deltaY * 32
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? event.deltaY * window.innerHeight
+          : event.deltaY;
+      if (Math.abs(delta) < 0.5) return;
+
+      const base = Math.min(1, Math.max(0, targetScrollProgressRef.current));
+      const atStart = delta < 0 && base <= 0.001;
+      const atEnd = delta > 0 && base >= 0.999;
+
+      // Let regular page/modal scrolling continue at either end of the journey.
+      if (atStart || atEnd) return;
+
+      // While over the actual rooftop map, use the wheel to advance the route
+      // rather than scrolling the document/dialog at the same time.
+      event.preventDefault();
+      wheelControlledRef.current = true;
+      if (isDispatchingRef.current || manualModeRef.current) return;
+
+      const clampedDelta = Math.max(-220, Math.min(220, delta));
+      targetScrollProgressRef.current = Math.min(
+        1,
+        Math.max(0, base + clampedDelta / 1400)
+      );
+      if (scrollRafRef.current === null) {
+        scrollRafRef.current = requestAnimationFrame(stepSmoothScroll);
+      }
+    };
+
+    routeCanvas?.addEventListener('wheel', onRouteWheel, { passive: false });
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize, { passive: true });
     dialogEl?.addEventListener('scroll', onScroll, { passive: true });
 
     return () => {
       observer?.disconnect();
+      routeCanvas?.removeEventListener('wheel', onRouteWheel);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       dialogEl?.removeEventListener('scroll', onScroll);
@@ -603,6 +646,8 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   const resetRoute = () => {
     if (isDispatchingRef.current) return;
     play('button-click');
+    wheelControlledRef.current = false;
+    targetScrollProgressRef.current = 0;
     manualModeRef.current = true;
     lastMilestoneRef.current = 0;
     hasCelebratedRef.current = false;
@@ -762,7 +807,12 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
           </div>
 
           {/* Panoramic Rooftop SVG Canvas */}
-          <div className="relative w-full aspect-[16/9] min-h-[240px] sm:min-h-[320px] max-h-[490px] bg-gradient-to-b from-[#0f0a1c] via-[#1a1228] to-[#241938] rounded-2xl border border-white/15 overflow-hidden select-none">
+          <div
+            ref={routeCanvasRef}
+            data-testid="dream-delivery-route-canvas"
+            className="dream-delivery-route-canvas relative w-full aspect-[16/9] min-h-[240px] sm:min-h-[320px] max-h-[490px] bg-gradient-to-b from-[#0f0a1c] via-[#1a1228] to-[#241938] rounded-2xl border border-white/15 overflow-hidden select-none"
+            aria-label="Scroll here to guide Pip along the rooftop route"
+          >
             {/* Ambient Starfield Pattern */}
             <div
               className="absolute inset-0 opacity-30 pointer-events-none"
