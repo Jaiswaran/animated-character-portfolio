@@ -139,7 +139,8 @@ function createSphere(stacks = 18, slices = 24) {
     for (let slice = 0; slice < slices; slice++) {
       const first = stack * (slices + 1) + slice;
       const second = first + slices + 1;
-      indices.push(first, second, first + 1, second, second + 1, first + 1);
+      // Counter-clockwise outward winding keeps the sphere visible with back-face culling.
+      indices.push(first, first + 1, second, second, first + 1, second + 1);
     }
   }
 
@@ -447,8 +448,10 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         global = multiply(global, rotateY(yaw));
         global = multiply(global, rotateX(pitch));
 
-        const waving = wavingRef.current && !reducedRef.current;
-        const waveAngle = waving ? Math.sin(time * 0.025) * 0.19 : 0;
+        const waving = wavingRef.current;
+        const waveAngle = waving
+          ? reducedRef.current ? 0.22 : Math.sin(time * 0.025) * 0.19
+          : 0;
         let handGroup = translation(0.62, 0.08, 0.16);
         handGroup = multiply(handGroup, rotateZ(waveAngle));
         handGroup = multiply(handGroup, translation(-0.62, -0.08, -0.16));
