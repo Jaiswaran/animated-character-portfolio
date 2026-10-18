@@ -605,10 +605,10 @@ html.dark body,
 .ultimate-lantern-scene {
   --project-glow: #d9c8ef; position: relative; display: flex; min-height: 265px; align-items: center; justify-content: center;
   isolation: isolate; overflow: hidden;
-  background: radial-gradient(ellipse at 50% 82%, color-mix(in srgb, var(--project-glow) 46%, transparent), transparent 54%), linear-gradient(155deg, #302744 0%, #21182f 52%, #171123 100%);
-  transition: background .5s ease;
+  background: radial-gradient(ellipse at 50% 82%, rgba(243,207,117,.10), transparent 54%), linear-gradient(155deg, #302744 0%, #21182f 52%, #171123 100%);
+  transition: none;
 }
-.ultimate-lantern-scene.is-day { background: radial-gradient(ellipse at 50% 82%, color-mix(in srgb, var(--project-glow) 62%, transparent), transparent 54%), linear-gradient(155deg, #fff9f0, #f0dce7 85%); }
+.ultimate-lantern-scene.is-day { background: radial-gradient(ellipse at 50% 82%, rgba(243,207,117,.10), transparent 54%), linear-gradient(155deg, #302744 0%, #21182f 52%, #171123 100%); }
 .ultimate-lantern-scene::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(255,248,241,.9) 1px, transparent 1.4px); background-size: 32px 30px; opacity: .25; mask-image: linear-gradient(180deg, #000, transparent 85%); }
 .ultimate-lantern-halo { position: absolute; width: 9rem; height: 9rem; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--project-glow) 45%, transparent); box-shadow: 0 0 45px color-mix(in srgb, var(--project-glow) 15%, transparent), inset 0 0 25px color-mix(in srgb, var(--project-glow) 12%, transparent); }
 .ultimate-halo-one { transform: translate(-17%, 0) scale(1.15); animation: ultimate-halo-breathe 6s ease-in-out infinite; }
@@ -619,10 +619,10 @@ html.dark body,
 .ultimate-lantern-star-one { top: 28%; left: 17%; font-size: 1.15rem; animation: ultimate-star-drift 4.5s ease-in-out infinite; }
 .ultimate-lantern-star-two { top: 42%; right: 16%; font-size: 1.7rem; animation: ultimate-star-drift 5.5s ease-in-out -1.5s infinite reverse; }
 @keyframes ultimate-star-drift { 0%,100% { transform: translateY(0) rotate(0); opacity: .6; } 50% { transform: translateY(-9px) rotate(14deg); opacity: 1; } }
-.ultimate-lantern-image { position: relative; z-index: 1; width: 55%; max-width: 230px; max-height: 186px; object-fit: contain; filter: drop-shadow(0 0 22px color-mix(in srgb, var(--project-glow) 60%, transparent)); animation: ultimate-lantern-float 5.6s ease-in-out infinite; transition: filter .4s ease; }
+.ultimate-lantern-image { position: relative; z-index: 1; width: 55%; max-width: 230px; max-height: 186px; object-fit: contain; filter: hue-rotate(var(--project-hue, 0deg)) drop-shadow(0 0 22px color-mix(in srgb, var(--project-glow) 60%, transparent)); animation: ultimate-lantern-float 5.6s ease-in-out infinite; transition: filter .4s ease; }
 @keyframes ultimate-lantern-float { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-7px) rotate(1deg); } }
 .ultimate-lantern-footer { position: absolute; z-index: 3; bottom: .7rem; left: .8rem; right: .8rem; display: flex; justify-content: center; align-items: center; gap: .45rem; color: rgba(255,248,241,.73); font: 900 .53rem/1.2 'Quicksand', sans-serif; letter-spacing: .13em; }
-.ultimate-lantern-scene.is-day .ultimate-lantern-footer { color: rgba(92,64,51,.63); }
+.ultimate-lantern-scene.is-day .ultimate-lantern-footer { color: rgba(255,248,241,.73); }
 .ultimate-lantern-divider { opacity: .45; }
 .ultimate-live-dot { display: inline-block; width: .42rem; height: .42rem; background: #80be91; box-shadow: 0 0 0 3px rgba(128,190,145,.12); }
 
