@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -122,15 +123,28 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   const glow = GLOW_OPTIONS.find((item) => item.id === activeGlow) || GLOW_OPTIONS[0];
   const isLullabyAudible = lullaby.isPlaying && !lullaby.isMuted;
 
-  // Open modal in full screen
+  // Keep the browser Back button and mobile back gesture in sync with the open invention.
   const openProject = (project: ProjectCase) => {
     play('button-click');
-    setIsFullScreen(true); // Always open in full screen mode
+    setIsFullScreen(true);
+    if (typeof window !== 'undefined') {
+      const current = window.history.state;
+      const safeState = current && typeof current === 'object' ? current : {};
+      window.history.pushState(
+        { ...safeState, pipInventionModal: project.id },
+        '',
+        window.location.href,
+      );
+    }
     setSelectedProject(project);
   };
 
   const closeProject = () => {
     play('button-click');
+    if (typeof window !== 'undefined' && window.history.state?.pipInventionModal) {
+      window.history.back();
+      return;
+    }
     setSelectedProject(null);
   };
 
@@ -164,6 +178,17 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
 
     const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
 
+    const handlePopState = (event: PopStateEvent) => {
+      const projectId = event.state?.pipInventionModal as ProjectId | undefined;
+      const project = PROJECTS.find((item) => item.id === projectId);
+      if (project) {
+        setIsFullScreen(true);
+        setSelectedProject(project);
+      } else {
+        setSelectedProject(null);
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -189,9 +214,11 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     };
 
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('popstate', handlePopState);
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('popstate', handlePopState);
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
@@ -201,7 +228,10 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   const renderNightlightArtwork = (large = false) => (
     <div
       className={'ultimate-lantern-scene' + (large ? ' ultimate-art-large' : '') + (isNightPreview ? ' is-night' : ' is-day')}
-      style={{ '--project-glow': glow.hex } as React.CSSProperties}
+      style={{
+        '--project-glow': glow.hex,
+        '--project-hue': ({ amber: '0deg', lavender: '245deg', blush: '320deg', starlight: '205deg' } as const)[glow.id],
+      } as React.CSSProperties}
     >
       <div className="ultimate-lantern-halo ultimate-halo-one" aria-hidden="true" />
       <div className="ultimate-lantern-halo ultimate-halo-two" aria-hidden="true" />
@@ -324,16 +354,12 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
           {PROJECTS.map((project, index) => (
             <article
               key={project.id}
-              tabIndex={0}
-              role="button"
-              onClick={() => openProject(project)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  openProject(project);
-                }
+              onClick={(event) => {
+                const target = event.target as HTMLElement;
+                if (target.closest('button, a, input, select, textarea, [role="button"]')) return;
+                openProject(project);
               }}
-              className={'ultimate-project-card ultimate-project-' + project.id + ' cursor-pointer group focus:outline-none focus:ring-4 focus:ring-rich-berry/30 dark:focus:ring-star-gold/40'}
+              className={'ultimate-project-card ultimate-project-' + project.id + ' group'}
               style={{ '--project-accent': project.accent, animationDelay: (index * 120) + 'ms' } as React.CSSProperties}
               data-project-card="true"
               aria-label={'Open ' + project.title + ' in full screen'}
@@ -424,10 +450,15 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                     ? (deliveryStatus === 'dispatching' ? 'IN FLIGHT' : 'ROOFTOPS CLEAR')
                     : `${toyStats.height} Stories High`}
                 </span>
-                <span className="ultimate-project-cta group-hover:scale-102 transition-transform">
+                <button
+                  type="button"
+                  onClick={() => openProject(project)}
+                  className="ultimate-project-cta group-hover:scale-102 transition-transform"
+                  aria-label={project.action + ' in full screen'}
+                >
                   <span>{project.action} (Full Screen)</span>
                   <Maximize2 className="h-4 w-4" />
-                </span>
+                </button>
               </div>
             </article>
           ))}
@@ -473,7 +504,17 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
               </div>
 
               {/* Action Buttons: Fullscreen Toggle & Close */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={closeProject}
+                  className="px-3 py-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm inline-flex items-center gap-1.5"
+                  title="Back to inventions"
+                  aria-label="Back to inventions"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="text-xs font-bold">Back</span>
+                </button>
                 <button
                   type="button"
                   onClick={toggleFullScreen}
