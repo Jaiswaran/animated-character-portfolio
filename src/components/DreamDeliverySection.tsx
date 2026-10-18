@@ -130,6 +130,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const parcelAnimationFrameRef = useRef<number | null>(null);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const tourTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDispatchingRef = useRef(false);
 
   const scheduleTimeout = (callback: () => void, delay: number) => {
@@ -200,6 +201,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       if (parcelAnimationFrameRef.current !== null) cancelAnimationFrame(parcelAnimationFrameRef.current);
       timeoutRefs.current.forEach((timer) => clearTimeout(timer));
       timeoutRefs.current = [];
+      tourTimerRef.current = null;
       animationFrameRef.current = null;
       parcelAnimationFrameRef.current = null;
       isDispatchingRef.current = false;
@@ -209,6 +211,12 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   // Dispatch flight to a specific station
   const flyToStation = (targetIndex: number, isTour = false) => {
     if (isDispatchingRef.current || targetIndex < 0 || targetIndex >= stations.length) return;
+    if (!isTour && tourTimerRef.current !== null) {
+      clearTimeout(tourTimerRef.current);
+      timeoutRefs.current = timeoutRefs.current.filter((timer) => timer !== tourTimerRef.current);
+      tourTimerRef.current = null;
+      setIsTouring(false);
+    }
     isDispatchingRef.current = true;
 
     if (animationFrameRef.current !== null) {
@@ -325,7 +333,8 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
         if (isTour) {
           const nextIdx = (targetIndex + 1) % stations.length;
           if (nextIdx !== 0) {
-            scheduleTimeout(() => {
+            tourTimerRef.current = scheduleTimeout(() => {
+              tourTimerRef.current = null;
               flyToStation(nextIdx, true);
             }, 1400);
           } else {
@@ -361,6 +370,10 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     setIsTouring(false);
     setActiveBubble(null);
     setDroppingParcel(null);
+    timeoutRefs.current.forEach((timer) => clearTimeout(timer));
+    timeoutRefs.current = [];
+    tourTimerRef.current = null;
+    setSmokePuffs([]);
     isDispatchingRef.current = false;
   };
 
