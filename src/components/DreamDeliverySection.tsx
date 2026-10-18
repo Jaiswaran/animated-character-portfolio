@@ -128,10 +128,25 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 }) => {
   const { play } = useSoundEffects();
   const animationFrameRef = useRef<number | null>(null);
+  const parcelAnimationFrameRef = useRef<number | null>(null);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const tourTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDispatchingRef = useRef(false);
 
-  // Stations state with delivery marks
-  const [stations, setStations] = useState<RooftopStation[]>(ROOFTOP_STATIONS);
-  const [activeStationIndex, setActiveStationIndex] = useState(1);
+  const scheduleTimeout = (callback: () => void, delay: number) => {
+    const timer = setTimeout(() => {
+      timeoutRefs.current = timeoutRefs.current.filter((item) => item !== timer);
+      callback();
+    }, delay);
+    timeoutRefs.current.push(timer);
+    return timer;
+  };
+
+  // No station starts as delivered; the ledger reflects actions taken in this session.
+  const [stations, setStations] = useState<RooftopStation[]>(() =>
+    ROOFTOP_STATIONS.map((station) => ({ ...station, delivered: false }))
+  );
+  const [activeStationIndex, setActiveStationIndex] = useState(0);
   const [status, setStatus] = useState<DeliveryStatus>('idle');
   const [progressFraction, setProgressFraction] = useState(0);
 
@@ -182,20 +197,35 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   // Clean up RAF on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+      if (parcelAnimationFrameRef.current !== null) cancelAnimationFrame(parcelAnimationFrameRef.current);
+      timeoutRefs.current.forEach((timer) => clearTimeout(timer));
+      timeoutRefs.current = [];
+      tourTimerRef.current = null;
+      animationFrameRef.current = null;
+      parcelAnimationFrameRef.current = null;
+      isDispatchingRef.current = false;
     };
   }, []);
 
   // Dispatch flight to a specific station
   const flyToStation = (targetIndex: number, isTour = false) => {
-    if (status === 'dispatching') return;
+    if (isDispatchingRef.current || targetIndex < 0 || targetIndex >= stations.length) return;
+    if (!isTour && tourTimerRef.current !== null) {
+      clearTimeout(tourTimerRef.current);
+      timeoutRefs.current = timeoutRefs.current.filter((timer) => timer !== tourTimerRef.current);
+      tourTimerRef.current = null;
+      setIsTouring(false);
+    }
+    isDispatchingRef.current = true;
 
     if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+    if (parcelAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(parcelAnimationFrameRef.current);
+      parcelAnimationFrameRef.current = null;
     }
 
     play('dream-dispatch');
@@ -276,16 +306,18 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 
       if (t < 1) {
         setDroppingParcel((prev) => (prev ? { ...prev, progress: t } : null));
-        requestAnimationFrame(animateDrop);
+        parcelAnimationFrameRef.current = requestAnimationFrame(animateDrop);
       } else {
+        parcelAnimationFrameRef.current = null;
         setDroppingParcel(null);
+        isDispatchingRef.current = false;
         // Play chiming celebration
         play('nightlight-change');
 
         // Add chimney smoke puff
         const puffId = Date.now();
         setSmokePuffs((prev) => [...prev, { id: puffId, x: station.chimneyX, y: station.chimneyY }]);
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setSmokePuffs((prev) => prev.filter((p) => p.id !== puffId));
         }, 1500);
 
@@ -301,7 +333,8 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
         if (isTour) {
           const nextIdx = (targetIndex + 1) % stations.length;
           if (nextIdx !== 0) {
-            setTimeout(() => {
+            tourTimerRef.current = scheduleTimeout(() => {
+              tourTimerRef.current = null;
               flyToStation(nextIdx, true);
             }, 1400);
           } else {
@@ -311,16 +344,37 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       }
     };
 
-    requestAnimationFrame(animateDrop);
+    parcelAnimationFrameRef.current = requestAnimationFrame(animateDrop);
   };
 
   // Launch Grand Midnight Tour
   const startGrandTour = () => {
-    if (status === 'dispatching') return;
+    if (isDispatchingRef.current || status === 'dispatching') return;
     setIsTouring(true);
-    // Reset deliveries for excitement
-    setStations((prev) => prev.map((s) => ({ ...s, delivered: false })));
+    setStations((prev) => prev.map((station) => ({ ...station, delivered: false })));
     flyToStation(0, true);
+  };
+
+  const resetRoute = () => {
+    if (isDispatchingRef.current) return;
+    play('button-click');
+    setStations((prev) => prev.map((station) => ({ ...station, delivered: false })));
+    setActiveStationIndex(0);
+    setPipPos({
+      x: ROOFTOP_STATIONS[0].x,
+      y: ROOFTOP_STATIONS[0].y - 50,
+      angle: 0,
+    });
+    setProgressFraction(0);
+    setStatus('idle');
+    setIsTouring(false);
+    setActiveBubble(null);
+    setDroppingParcel(null);
+    timeoutRefs.current.forEach((timer) => clearTimeout(timer));
+    timeoutRefs.current = [];
+    tourTimerRef.current = null;
+    setSmokePuffs([]);
+    isDispatchingRef.current = false;
   };
 
   // Click on chimney to puff smoke
@@ -328,7 +382,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     play('button-click');
     const puffId = Date.now();
     setSmokePuffs((prev) => [...prev, { id: puffId, x, y }]);
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setSmokePuffs((prev) => prev.filter((p) => p.id !== puffId));
     }, 1500);
   };
@@ -367,9 +421,9 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
             {/* Status Indicator */}
             <div className="flex items-center gap-3">
               <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-sm" />
-              <div>
+              <div role="status" aria-live="polite">
                 <span className="text-[11px] opacity-75 uppercase tracking-wider block">
-                  Pip's Slumber Status
+                  {isTouring ? 'Grand Midnight Tour' : "Pip's Slumber Status"}
                 </span>
                 <strong className="text-emerald-300 text-sm">
                   {status === 'dispatching'
@@ -415,8 +469,30 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
                 <Send className="w-4 h-4" />
                 <span>{status === 'dispatching' ? 'Pip is Flying...' : 'Send Next Dream ✨'}</span>
               </button>
+              <button
+                type="button"
+                onClick={resetRoute}
+                disabled={isDispatchingRef.current || deliveredCount === 0}
+                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-cream font-bold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Reset all dream deliveries"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
             </div>
           </div>
+
+          {status === 'dispatching' && (
+            <div className="mb-4" role="progressbar" aria-label={`Flying to ${activeStation.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressFraction * 100)}>
+              <div className="flex items-center justify-between text-[10px] text-cream/70 mb-1.5">
+                <span>FLIGHT PATH</span>
+                <span>{Math.round(progressFraction * 100)}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-soft-blush via-star-gold to-lavender transition-[width] duration-75" style={{ width: `${Math.round(progressFraction * 100)}%` }} />
+              </div>
+            </div>
+          )}
 
           {/* Panoramic Rooftop SVG Canvas */}
           <div className="relative w-full aspect-[16/9] min-h-[300px] max-h-[490px] bg-gradient-to-b from-[#0f0a1c] via-[#1a1228] to-[#241938] rounded-2xl border border-white/15 overflow-hidden select-none">

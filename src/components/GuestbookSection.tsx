@@ -3,34 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { DreamEntry, formatOdometerDigits, validateDreamInput } from '../utils/counter';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 
-const INITIAL_ENTRIES: DreamEntry[] = [
-  {
-    id: 'entry-1',
-    name: 'Ada_Lovelace_Nap',
-    timestamp: '10m ago',
-    message: 'Pip’s music box melody kept me calm right through the final deployment! 10/10 dream quality.',
-    stamp: '🦄',
-  },
-  {
-    id: 'entry-2',
-    name: 'HackathonSleepyhead',
-    timestamp: '32m ago',
-    message: 'Please tell Pip not to trip on his pajama cuff tonight, the amber lantern is doing wonders for my eyes.',
-    stamp: '☁️',
-  },
-  {
-    id: 'entry-3',
-    name: 'StarlightPilot',
-    timestamp: '1h ago',
-    message: 'Dispatched a dream to the Lighthouse Nursery. Smooth sailing and calm waves ahead.',
-    stamp: '⭐',
-  },
-];
+const INITIAL_ENTRIES: DreamEntry[] = [];
 
 interface GuestbookSectionProps {
   onOpenEasterEgg: () => void;
@@ -39,7 +17,7 @@ interface GuestbookSectionProps {
 export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEasterEgg }) => {
   const { play } = useSoundEffects();
   const GUESTBOOK_STORAGE_KEY = 'pip_guestbook_ledger';
-  const HARVEST_STORAGE_KEY = 'pip_dreams_harvested';
+  const VISIT_STORAGE_KEY = 'pip_observatory_local_visits';
 
   const [entries, setEntries] = useState<DreamEntry[]>(() => {
     if (typeof window !== 'undefined') {
@@ -54,15 +32,29 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
   const [message, setMessage] = useState('');
   const [selectedStamp, setSelectedStamp] = useState('⭐');
   const [formError, setFormError] = useState<string | null>(null);
-  const [dreamsHarvested, setDreamsHarvested] = useState<number>(() => {
+  const [visitCount, setVisitCount] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem(HARVEST_STORAGE_KEY);
-        if (saved) return parseInt(saved, 10);
+        const saved = Number.parseInt(localStorage.getItem(VISIT_STORAGE_KEY) || '0', 10);
+        return Number.isFinite(saved) ? Math.max(0, saved) : 0;
       } catch {}
     }
-    return 4829;
+    return 0;
   });
+  const visitCountedRef = useRef(false);
+
+  useEffect(() => {
+    // Count each Observatory page visit once per mounted app, not guestbook submissions.
+    if (visitCountedRef.current || typeof window === 'undefined') return;
+    visitCountedRef.current = true;
+    try {
+      const next = Math.min(999999, visitCount + 1);
+      localStorage.setItem(VISIT_STORAGE_KEY, String(next));
+      setVisitCount(next);
+    } catch {
+      setVisitCount((current) => Math.min(999999, current + 1));
+    }
+  }, []);
   const [justSubmittedId, setJustSubmittedId] = useState<string | null>(null);
 
   const stamps = ['⭐', '☁️', '🦄', '🎀'];
@@ -89,13 +81,10 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
 
     const updatedEntries = [newEntry, ...entries];
     setEntries(updatedEntries);
-    const updatedHarvested = dreamsHarvested + 1;
-    setDreamsHarvested(updatedHarvested);
     setJustSubmittedId(newId);
 
     try {
       localStorage.setItem(GUESTBOOK_STORAGE_KEY, JSON.stringify(updatedEntries.slice(0, 50)));
-      localStorage.setItem(HARVEST_STORAGE_KEY, String(updatedHarvested));
     } catch {}
 
     setName('');
@@ -112,7 +101,7 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
     onOpenEasterEgg();
   };
 
-  const odometerDigits = formatOdometerDigits(dreamsHarvested, 6);
+  const odometerDigits = formatOdometerDigits(visitCount, 6);
 
   return (
     <section
@@ -225,7 +214,7 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
                 Recent Observatory Entries
               </span>
               <span className="text-rich-berry dark:text-star-gold font-medium">
-                Synced with Moon Satellites 🛰️
+                Saved on this browser · not shared across visitors 🛰️
               </span>
             </div>
 
@@ -275,11 +264,11 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
           {/* Early Web Mechanical LED Visitor Counter */}
           <div className="flex items-center gap-3">
             <span className="font-bubbly text-xs font-bold text-warm-brown dark:text-cream tracking-wide">
-              DREAMS HARVESTED:
+              LOCAL VISITS:
             </span>
             <div
               className="flex items-center gap-1 bg-black p-1.5 rounded-lg border-2 border-warm-brown/40 font-mono text-sm tracking-wider font-bold text-emerald-400 shadow-inner"
-              aria-label={`Dreams harvested count: ${dreamsHarvested}`}
+              aria-label={`Local visit count for this browser: ${visitCount}`}
             >
               {odometerDigits.map((digit, i) => (
                 <span

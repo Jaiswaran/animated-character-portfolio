@@ -205,6 +205,23 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
   const [wobbling, setWobbling] = useState(false);
   const [rattleSparkle, setRattleSparkle] = useState<string | null>(null);
   const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
+  const actionLockRef = useRef(false);
+  const timerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const scheduleTimer = (callback: () => void, delay: number) => {
+    const timer = setTimeout(() => {
+      timerRefs.current = timerRefs.current.filter((item) => item !== timer);
+      callback();
+    }, delay);
+    timerRefs.current.push(timer);
+    return timer;
+  };
+
+  useEffect(() => () => {
+    timerRefs.current.forEach((timer) => clearTimeout(timer));
+    timerRefs.current = [];
+    actionLockRef.current = false;
+  }, []);
 
   // Calculate metrics
   const totalBlocks = columns.reduce((acc, col) => acc + col.length, 0);
@@ -228,6 +245,7 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
 
   // Drop block onto column
   const dropBlock = (colIndex: number) => {
+    if (actionLockRef.current) return;
     if (columns[colIndex].length >= MAX_HEIGHT) {
       play('button-click');
       return;
@@ -254,7 +272,7 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
     if (selectedShape === 'rattle') {
       play('toy-rattle');
       setRattleSparkle(newBlock.id);
-      setTimeout(() => setRattleSparkle(null), 800);
+      scheduleTimer(() => setRattleSparkle(null), 800);
     } else {
       play('block-place');
     }
@@ -263,13 +281,14 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
     if (columns[colIndex].length + 1 >= 6) {
       play('tower-celebrate');
       setCelebrationMessage('Masterpiece in the stars! Pip approves!');
-      setTimeout(() => setCelebrationMessage(null), 3000);
+      scheduleTimer(() => setCelebrationMessage(null), 3000);
     }
   };
 
   // Remove individual block
   const removeBlock = (colIndex: number, blockIndex: number, event: React.MouseEvent) => {
     event.stopPropagation();
+    if (actionLockRef.current) return;
     setHistory((prev) => [...prev.slice(-15), columns.map((c) => [...c])]);
     play('button-click');
     setColumns((prev) => {
@@ -284,12 +303,12 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
     event.stopPropagation();
     play('toy-rattle');
     setRattleSparkle(blockId);
-    setTimeout(() => setRattleSparkle(null), 700);
+    scheduleTimer(() => setRattleSparkle(null), 700);
   };
 
   // Undo last placement
   const undoLast = () => {
-    if (!history.length) return;
+    if (!history.length || actionLockRef.current) return;
     play('button-click');
     const prev = history[history.length - 1];
     setHistory((h) => h.slice(0, -1));
@@ -298,36 +317,41 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
 
   // Clear / topple all blocks
   const toppleTower = () => {
-    if (totalBlocks === 0) return;
+    if (totalBlocks === 0 || actionLockRef.current) return;
+    actionLockRef.current = true;
     setHistory((prev) => [...prev.slice(-15), columns.map((c) => [...c])]);
     play('tower-wobble');
     setWobbling(true);
-    setTimeout(() => {
+    scheduleTimer(() => {
       setColumns(Array.from({ length: NUM_COLUMNS }, () => []));
       setWobbling(false);
+      actionLockRef.current = false;
       play('button-click');
     }, 450);
   };
 
   // Test tower stability / balance wobble
   const testBalance = () => {
-    if (totalBlocks === 0) return;
+    if (totalBlocks === 0 || actionLockRef.current) return;
+    actionLockRef.current = true;
     play('tower-wobble');
     setWobbling(true);
-    setTimeout(() => {
+    scheduleTimer(() => {
       setWobbling(false);
+      actionLockRef.current = false;
       play('tower-celebrate');
       setCelebrationMessage(
         maxHeight >= 5
           ? '✦ Tower stands 100% structurally magical!'
           : '✦ Perfectly balanced & cozy!'
       );
-      setTimeout(() => setCelebrationMessage(null), 2800);
+      scheduleTimer(() => setCelebrationMessage(null), 2800);
     }, 700);
   };
 
   // Load a blueprint
   const loadBlueprint = (bp: (typeof BLUEPRINTS)[0]) => {
+    if (actionLockRef.current) return;
     setHistory((prev) => [...prev.slice(-15), columns.map((c) => [...c])]);
     play('tower-celebrate');
 
@@ -346,12 +370,11 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
 
     setColumns(newCols);
     setCelebrationMessage(`Loaded "${bp.name}" blueprint!`);
-    setTimeout(() => setCelebrationMessage(null), 2500);
+    scheduleTimer(() => setCelebrationMessage(null), 2500);
   };
 
   // Render a single styled block
   const renderBlockElement = (block: PlacedBlock, colIndex: number, blockIndex: number) => {
-    const isTop = blockIndex === columns[colIndex].length - 1;
     const isRattling = rattleSparkle === block.id;
 
     // Custom CSS shapes for our blocks
@@ -393,22 +416,28 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
     return (
       <div
         key={block.id}
-        onClick={(e) => {
-          if (block.shape === 'rattle') {
-            handleRattleClick(block.id, e);
-          } else {
-            removeBlock(colIndex, blockIndex, e);
-          }
-        }}
-        title={`${block.shape} - click to ${block.shape === 'rattle' ? 'shake rattle' : 'remove block'}`}
-        className={`relative group cursor-pointer transition-transform duration-200 hover:scale-105 select-none ${
+        className={`relative group transition-transform duration-200 select-none ${
           wobbling ? 'animate-tilt' : ''
         }`}
         style={{
           animationDelay: `${(colIndex * 40 + blockIndex * 25) % 200}ms`,
         }}
       >
-        <div className={shapeClass} style={extraStyle}>
+        <button
+          type="button"
+          disabled={actionLockRef.current}
+          onClick={(event) => {
+            if (block.shape === 'rattle') {
+              handleRattleClick(block.id, event);
+            } else {
+              removeBlock(colIndex, blockIndex, event);
+            }
+          }}
+          title={`${block.shape} - click to ${block.shape === 'rattle' ? 'shake rattle' : 'remove block'}`}
+          aria-label={`${block.shape === 'rattle' ? 'Shake' : 'Remove'} ${SHAPES_CATALOG.find((shape) => shape.id === block.shape)?.name || block.shape}`}
+          className={`${shapeClass} cursor-pointer transition-transform duration-200 hover:scale-105 disabled:cursor-wait`}
+          style={extraStyle}
+        >
           {block.shape === 'rattle' ? (
             <span className="flex items-center gap-0.5">
               ♫ <span className="text-[10px] opacity-75">✦</span>
@@ -418,13 +447,14 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
           ) : (
             <span>{block.symbol || '✦'}</span>
           )}
-        </div>
+        </button>
 
         {/* Hover delete affordance */}
         <button
           type="button"
+          disabled={actionLockRef.current}
           onClick={(e) => removeBlock(colIndex, blockIndex, e)}
-          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rich-berry text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rich-berry text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-md z-10 disabled:opacity-40"
           aria-label="Remove block"
         >
           ×
@@ -555,7 +585,16 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
                   <div
                     key={colIdx}
                     onClick={() => dropBlock(colIdx)}
-                    className={`group relative flex flex-col-reverse items-center gap-1.5 p-2 rounded-2xl min-h-[260px] sm:min-h-[320px] justify-start transition-all cursor-pointer ${
+                    role="group"
+                    tabIndex={0}
+                    aria-label={`Column ${colIdx + 1}. Press Enter or Space to stack the selected shape.`}
+                    onKeyDown={(event) => {
+                      if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) {
+                        event.preventDefault();
+                        dropBlock(colIdx);
+                      }
+                    }}
+                    className={`group relative flex flex-col-reverse items-center gap-1.5 p-2 rounded-2xl min-h-[260px] sm:min-h-[320px] justify-start transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rich-berry ${
                       isFull
                         ? 'opacity-90'
                         : 'hover:bg-rich-berry/5 dark:hover:bg-star-gold/5 border border-dashed border-transparent hover:border-rich-berry/30 dark:hover:border-star-gold/30'
