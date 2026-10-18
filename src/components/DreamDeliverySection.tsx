@@ -345,9 +345,26 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   const startGrandTour = () => {
     if (isDispatchingRef.current || status === 'dispatching') return;
     setIsTouring(true);
-    // Reset deliveries for excitement
-    setStations((prev) => prev.map((s) => ({ ...s, delivered: false })));
+    setStations((prev) => prev.map((station) => ({ ...station, delivered: false })));
     flyToStation(0, true);
+  };
+
+  const resetRoute = () => {
+    if (isDispatchingRef.current) return;
+    play('button-click');
+    setStations((prev) => prev.map((station) => ({ ...station, delivered: false })));
+    setActiveStationIndex(0);
+    setPipPos({
+      x: ROOFTOP_STATIONS[0].x,
+      y: ROOFTOP_STATIONS[0].y - 50,
+      angle: 0,
+    });
+    setProgressFraction(0);
+    setStatus('idle');
+    setIsTouring(false);
+    setActiveBubble(null);
+    setDroppingParcel(null);
+    isDispatchingRef.current = false;
   };
 
   // Click on chimney to puff smoke
@@ -394,9 +411,9 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
             {/* Status Indicator */}
             <div className="flex items-center gap-3">
               <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-sm" />
-              <div>
+              <div role="status" aria-live="polite">
                 <span className="text-[11px] opacity-75 uppercase tracking-wider block">
-                  Pip's Slumber Status
+                  {isTouring ? 'Grand Midnight Tour' : "Pip's Slumber Status"}
                 </span>
                 <strong className="text-emerald-300 text-sm">
                   {status === 'dispatching'
@@ -442,8 +459,30 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
                 <Send className="w-4 h-4" />
                 <span>{status === 'dispatching' ? 'Pip is Flying...' : 'Send Next Dream ✨'}</span>
               </button>
+              <button
+                type="button"
+                onClick={resetRoute}
+                disabled={isDispatchingRef.current || deliveredCount === 0}
+                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-cream font-bold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Reset all dream deliveries"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
             </div>
           </div>
+
+          {status === 'dispatching' && (
+            <div className="mb-4" role="progressbar" aria-label={`Flying to ${activeStation.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressFraction * 100)}>
+              <div className="flex items-center justify-between text-[10px] text-cream/70 mb-1.5">
+                <span>FLIGHT PATH</span>
+                <span>{Math.round(progressFraction * 100)}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-soft-blush via-star-gold to-lavender transition-[width] duration-75" style={{ width: `${Math.round(progressFraction * 100)}%` }} />
+              </div>
+            </div>
+          )}
 
           {/* Panoramic Rooftop SVG Canvas */}
           <div className="relative w-full aspect-[16/9] min-h-[300px] max-h-[490px] bg-gradient-to-b from-[#0f0a1c] via-[#1a1228] to-[#241938] rounded-2xl border border-white/15 overflow-hidden select-none">
