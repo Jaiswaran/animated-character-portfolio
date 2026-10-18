@@ -117,7 +117,7 @@ function lookAt(eye: Vec3, center: Vec3, up: Vec3): Mat4 {
   ]);
 }
 
-function createSphere(stacks = 18, slices = 24) {
+function createSphere(stacks = 14, slices = 18) {
   const positions: number[] = [];
   const normals: number[] = [];
   const indices: number[] = [];
@@ -333,6 +333,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
   const stopRef = useRef<() => void>(() => undefined);
   const reducedRef = useRef(!motionAllowed);
   const wavingRef = useRef(isWaving);
+  const waveStartedRef = useRef(0);
   const [webglReady, setWebglReady] = useState(false);
 
   useEffect(() => {
@@ -346,6 +347,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
 
   useEffect(() => {
     wavingRef.current = isWaving;
+    if (isWaving) waveStartedRef.current = performance.now();
     drawRef.current(performance.now());
     if (!reducedRef.current) startRef.current();
     else window.setTimeout(() => drawRef.current(performance.now()), 500);
@@ -364,7 +366,10 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
     let targetX = 0;
     let targetY = 0;
     let currentTime = 0;
+    let lastDrawAt = 0;
+    let isInView = true;
     let resizeObserver: ResizeObserver | null = null;
+    let visibilityObserver: IntersectionObserver | null = null;
 
     try {
       gl = canvas.getContext('webgl', { alpha: true, antialias: true, powerPreference: 'low-power' });
@@ -449,8 +454,9 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         global = multiply(global, rotateX(pitch));
 
         const waving = wavingRef.current;
+        const waveProgress = clamp((time - waveStartedRef.current) / 420, 0, 1);
         const waveAngle = waving
-          ? reducedRef.current ? 0.22 : Math.sin(time * 0.025) * 0.19
+          ? reducedRef.current ? 0.22 : Math.sin(waveProgress * Math.PI * 2) * 0.18
           : 0;
         let handGroup = translation(0.62, 0.08, 0.16);
         handGroup = multiply(handGroup, rotateZ(waveAngle));
@@ -486,15 +492,19 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       drawRef.current = drawScene;
 
       const animate = (time: number) => {
-        if (disposed || reducedRef.current) {
+        if (disposed || reducedRef.current || !isInView) {
           frameId = null;
           return;
         }
-        drawScene(time);
+        // Cap the decorative motion to ~30 FPS to reduce GPU/battery use on phones.
+        if (time - lastDrawAt >= 1000 / 30) {
+          drawScene(time);
+          lastDrawAt = time;
+        }
         frameId = window.requestAnimationFrame(animate);
       };
       startRef.current = () => {
-        if (disposed || frameId !== null || reducedRef.current) return;
+        if (disposed || frameId !== null || reducedRef.current || !isInView) return;
         frameId = window.requestAnimationFrame(animate);
       };
       stopRef.current = () => {
@@ -516,6 +526,23 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       stage.addEventListener('pointermove', handlePointerMove, { passive: true });
       stage.addEventListener('pointerleave', resetGaze, { passive: true });
 
+      visibilityObserver = new IntersectionObserver(([entry]) => {
+        isInView = entry.isIntersecting;
+        if (isInView && !reducedRef.current) startRef.current();
+        else {
+          stopRef.current();
+          if (reducedRef.current) drawScene(performance.now());
+        }
+      }, { threshold: 0.01 });
+      visibilityObserver.observe(stage);
+
+      const handleContextLost = (event: Event) => {
+        event.preventDefault();
+        setWebglReady(false);
+        stopRef.current();
+      };
+      canvas.addEventListener('webglcontextlost', handleContextLost, false);
+
       resizeObserver = new ResizeObserver(() => {
         resize();
         if (reducedRef.current) drawScene(performance.now());
@@ -531,6 +558,8 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         disposed = true;
         stopRef.current();
         resizeObserver?.disconnect();
+        visibilityObserver?.disconnect();
+        canvas.removeEventListener('webglcontextlost', handleContextLost, false);
         window.removeEventListener('resize', resize);
         stage.removeEventListener('pointermove', handlePointerMove);
         stage.removeEventListener('pointerleave', resetGaze);
