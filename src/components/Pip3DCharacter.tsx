@@ -2,10 +2,15 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Use the portfolio's polished, production character artwork as the visible model.
- * Layered eye highlights provide a light 2.5D gaze effect without the rough sphere mesh.
+ * Pip's hero character.
+ *
+ * The real 3D model (Three.js, see Pip3DScene) is loaded lazily so it never blocks first paint:
+ * the preloaded character artwork shows instantly and fades out once the 3D model has drawn its first frame.
+ * If WebGL is unavailable, the chunk fails to load, or the GPU context is lost, the artwork with its
+ * pointer-tracking CSS eyes stays on screen as a graceful fallback.
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { clamp } from '../utils/gaze';
 
 interface Pip3DCharacterProps {
   motionAllowed: boolean;
@@ -19,14 +24,57 @@ interface Gaze {
   tiltY: number;
 }
 
+type SceneComponent = React.ComponentType<{
+  motionAllowed: boolean;
+  isWaving: boolean;
+  onReady?: () => void;
+  onError?: () => void;
+}>;
+
 const RESTING_GAZE: Gaze = { x: 0, y: 0, tiltX: 0, tiltY: 0 };
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+function supportsWebGL(): boolean {
+  try {
+    const probe = document.createElement('canvas');
+    const gl = (probe.getContext('webgl2') || probe.getContext('webgl')) as WebGLRenderingContext | null;
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, isWaving }) => {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [gaze, setGaze] = useState<Gaze>(RESTING_GAZE);
   const [imageFailed, setImageFailed] = useState(false);
+  const [Scene, setScene] = useState<SceneComponent | null>(null);
+  const [sceneReady, setSceneReady] = useState(false);
+  const [sceneFailed, setSceneFailed] = useState(false);
 
+  // Load the 3D scene (and Three.js) after first paint.
+  useEffect(() => {
+    if (!supportsWebGL()) {
+      setSceneFailed(true);
+      return;
+    }
+
+    let cancelled = false;
+    import('./Pip3DScene')
+      .then((module) => {
+        if (!cancelled) setScene(() => module.Pip3DScene);
+      })
+      .catch(() => {
+        if (!cancelled) setSceneFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fallback behaviour: the 2D artwork's CSS eyes follow the pointer while the 3D model is unavailable.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -34,8 +82,8 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
     const handlePointerMove = (event: PointerEvent) => {
       if (!motionAllowed || event.pointerType === 'touch') return;
       const bounds = stage.getBoundingClientRect();
-      const nx = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width) * 2 - 1, -1, 1);
-      const ny = clamp((event.clientY - bounds.top) / Math.max(1, bounds.height) * 2 - 1, -1, 1);
+      const nx = clamp(((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 2 - 1, -1, 1);
+      const ny = clamp(((event.clientY - bounds.top) / Math.max(1, bounds.height)) * 2 - 1, -1, 1);
       setGaze({ x: nx, y: ny, tiltX: -ny * 2.1, tiltY: nx * 3.1 });
     };
 
@@ -48,6 +96,8 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
     };
   }, [motionAllowed]);
 
+  const show3D = sceneReady && !sceneFailed;
+
   const eyeVars = {
     '--pip-gaze-x': `${gaze.x * 17}%`,
     '--pip-gaze-y': `${gaze.y * 17}%`,
@@ -56,7 +106,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
   return (
     <div
       ref={stageRef}
-      className={`pip-realistic-stage${motionAllowed ? ' is-motion-enabled' : ' is-motion-reduced'}${isWaving ? ' is-greeting' : ''}`}
+      className={`pip-realistic-stage${motionAllowed ? ' is-motion-enabled' : ' is-motion-reduced'}${isWaving ? ' is-greeting' : ''}${show3D ? ' is-3d-ready' : ''}`}
       style={{
         '--pip-tilt-x': motionAllowed ? `${gaze.tiltX}deg` : '0deg',
         '--pip-tilt-y': motionAllowed ? `${gaze.tiltY}deg` : '0deg',
@@ -79,12 +129,25 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         </div>
       )}
 
-      {!imageFailed && (
+      {!imageFailed && !show3D && (
         <div className="pip-eye-tracking" style={eyeVars}>
           <span className="pip-eye-mask pip-eye-mask--left"><i className="pip-eye-iris"><b /></i></span>
           <span className="pip-eye-mask pip-eye-mask--right"><i className="pip-eye-iris"><b /></i></span>
         </div>
       )}
+
+      {Scene && !sceneFailed && (
+        <Scene
+          motionAllowed={motionAllowed}
+          isWaving={isWaving}
+          onReady={() => setSceneReady(true)}
+          onError={() => {
+            setSceneFailed(true);
+            setSceneReady(false);
+          }}
+        />
+      )}
+
       <span className="pip-realistic-aura" />
     </div>
   );

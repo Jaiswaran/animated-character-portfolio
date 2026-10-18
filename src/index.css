@@ -1623,3 +1623,33 @@ body { overflow-x: clip; }
 @media (max-width: 1023px) {
   .pip-realistic-stage { max-height: min(58svh, 520px); }
 }
+
+/* ---- Pip 3D model (Three.js) -------------------------------------------------
+   The canvas sits over the preloaded artwork; once the first 3D frame is drawn the
+   stage gets .is-3d-ready, the artwork fades out and the model fades in. */
+.pip-3d-canvas {
+  position: absolute;
+  inset: -3% -4%;
+  z-index: 2;
+  opacity: 0;
+  cursor: pointer;
+  touch-action: pan-y;
+  transition: opacity .45s ease;
+}
+.pip-3d-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+.pip-realistic-stage.is-3d-ready .pip-3d-canvas { opacity: 1; }
+.pip-realistic-stage.is-3d-ready .pip-realistic-art {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pip-3d-canvas, .pip-realistic-stage.is-3d-ready .pip-realistic-art { transition: none; }
+}

@@ -27,6 +27,10 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id) {
+            // Three.js is only needed for the hero's 3D Pip, which is lazy-loaded.
+            if (id.includes('node_modules/three')) {
+              return 'three';
+            }
             if (id.includes('node_modules/lucide-react')) {
               return 'lucide-icons';
             }

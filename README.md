@@ -1,6 +1,6 @@
 # Pip's Midnight Observatory ✦
 
-A whimsical, early-web-inspired interactive portfolio centered on Pip, a junior dream engineer. The hero now includes a procedural WebGL character with pointer-tracking eyes, plus a touch/keyboard greeting. The five-scene story—Observatory, Lullaby Lab, Nightlight Workshop, Rooftop Delivery, and Nursery—connects the portfolio's animated worlds into one journey. Each scene has fewer than 150 words, a keyboard-accessible chapter guide, animated SVG artwork, and a reduced-motion presentation. The final scene contains one hidden, replayable Secret Star reveal.
+A whimsical, early-web-inspired interactive portfolio centered on Pip, a junior dream engineer. The hero features Pip as a real 3D character (Three.js): his glowing eyes follow your cursor, his head turns toward it, and you can tap him to wave, boop his head, or drag to spin him. A keyboard greeting is also supported. The five-scene story—Observatory, Lullaby Lab, Nightlight Workshop, Rooftop Delivery, and Nursery—connects the portfolio's animated worlds into one journey. Each scene has fewer than 150 words, a keyboard-accessible chapter guide, animated SVG artwork, and a reduced-motion presentation. The final scene contains one hidden, replayable Secret Star reveal.
 
 **Live site:** https://animated-character-portfolio-a18l.vercel.app  
 **Source:** https://github.com/Jaiswaran/animated-character-portfolio
@@ -44,7 +44,7 @@ bun run build
 - Check phone widths from 320px upward for horizontal overflow; rotate to landscape and try each invention modal.
 - Open and close each invention with its Back/close button, Escape, backdrop, and browser Back, including after rotating the device.
 - Use keyboard Tab/Shift+Tab and Enter/Space to find and activate Pip's Secret Star in the final story scene; close with Escape and confirm focus returns to the star. Re-open it to verify the waking animation replays.
-- Move the pointer around Pip's 3D model and confirm the pupils track movement, then move away to confirm they return to center. Click/tap Pip or press Enter/Space to trigger the greeting. If WebGL is not available, the hero falls back to the original character artwork.
+- Move the pointer around the page and confirm Pip's pupils and head follow it (also when the pointer is far outside his box); leave the window and confirm he looks around on his own after a few seconds. Tap Pip to make him wave and hop, tap his head to boop it, and drag sideways to spin him (he springs back on release). Press Enter/Space on the focused character to greet. With WebGL unavailable or the 3D chunk failing to load, the hero falls back to the flat character artwork with CSS pointer-tracking eyes; with `prefers-reduced-motion`, the 3D model renders as a still frame.
 - At the bottom of the page, select "Not yet — give me a clue" and follow the link back to the final story scene.
 - Repeat with interface sound effects muted and with `prefers-reduced-motion: reduce` enabled.
 - Use the GitHub Actions Lighthouse report to inspect measured performance, accessibility, best-practices, and SEO scores. Treat 95+ as a target, not a guaranteed score.
