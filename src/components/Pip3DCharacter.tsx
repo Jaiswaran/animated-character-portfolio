@@ -468,8 +468,8 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       const emissiveAttribute = gl.getAttribLocation(program, 'aEmissive');
 
       const parts = makeCharacterParts();
-      const staticParts = parts.filter((part) => !part.gaze);
-      const gazeParts = parts.filter((part) => Boolean(part.gaze));
+      const staticParts = parts.filter((part) => !part.gaze && part.group !== 'hand');
+      const dynamicParts = parts.filter((part) => Boolean(part.gaze) || part.group === 'hand');
       const baked = bakeStaticParts(staticParts, sphere);
       gl.bindBuffer(gl.ARRAY_BUFFER, staticPositionBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, baked.positions, gl.STATIC_DRAW);
@@ -567,27 +567,31 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-        const waving = wavingRef.current;
         const waveProgress = clamp((time - waveStartedRef.current) / 420, 0, 1);
-        const waveAngle = waving
+        const waveAngle = wavingRef.current
           ? reducedRef.current ? 0.22 : Math.sin(waveProgress * Math.PI * 2) * 0.18
           : 0;
         let handGroup = translation(0.62, 0.08, 0.16);
         handGroup = multiply(handGroup, rotateZ(waveAngle));
         handGroup = multiply(handGroup, translation(-0.62, -0.08, -0.16));
 
-        for (const part of gazeParts) {
+        for (const part of dynamicParts) {
           let x = part.position[0];
           let y = part.position[1];
           let z = part.position[2];
-          const side = part.gaze === 'left' ? -1 : 1;
-          x += gazeX * 0.048 + side * gazeX * 0.004;
-          y -= gazeY * 0.045;
-          z += Math.max(0, Math.abs(gazeX) * 0.006);
+          if (part.gaze) {
+            const side = part.gaze === 'left' ? -1 : 1;
+            x += gazeX * 0.048 + side * gazeX * 0.004;
+            y -= gazeY * 0.045;
+            z += Math.max(0, Math.abs(gazeX) * 0.006);
+          }
 
           let local = translation(x, y, z);
+          if (part.rotationZ) local = multiply(local, rotateZ(part.rotationZ));
           local = multiply(local, scaling(part.scale[0], part.scale[1], part.scale[2]));
-          const model = multiply(global, local);
+          let model = global;
+          if (part.group === 'hand') model = multiply(model, handGroup);
+          model = multiply(model, local);
           gl.uniformMatrix4fv(modelLocation, false, model);
           gl.uniform3f(colorLocation, part.color[0], part.color[1], part.color[2]);
           gl.uniform1f(emissiveLocation, part.emissive ?? 0);
