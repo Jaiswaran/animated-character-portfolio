@@ -46,14 +46,6 @@ interface ProjectCase {
   action: string;
 }
 
-// Tint only the transparent lantern artwork. The surrounding night scene remains warm amber.
-const LAMP_HUE_ROTATION: Record<GlowMode, string> = {
-  amber: '0deg',
-  lavender: '224deg',
-  blush: '-61deg',
-  starlight: '180deg',
-};
-
 const PROJECTS: ProjectCase[] = [
   {
     id: 'nightlight',
@@ -310,13 +302,18 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       <span className="ultimate-lantern-moon" aria-hidden="true">{isNightPreview ? '☾' : '☼'}</span>
       <span className="ultimate-lantern-star ultimate-lantern-star-one" aria-hidden="true">✦</span>
       <span className="ultimate-lantern-star ultimate-lantern-star-two" aria-hidden="true">✧</span>
-      <img
-        src="/assets/pip_dream_lantern.png"
-        alt="Pip’s crescent moon dream lantern"
-        className="ultimate-lantern-image"
-        style={{ '--lamp-hue': LAMP_HUE_ROTATION[glow.id] } as React.CSSProperties}
-        onError={(event) => { event.currentTarget.style.opacity = '0'; }}
-      />
+      <div
+        className="ultimate-lantern-artwork"
+        style={{ '--lamp-color': glow.hex } as React.CSSProperties}
+      >
+        <img
+          src="/assets/pip_dream_lantern.png"
+          alt="Pip’s crescent moon dream lantern"
+          className="ultimate-lantern-image"
+          onError={(event) => { event.currentTarget.style.opacity = '0'; }}
+        />
+        <span className="ultimate-lantern-tint" aria-hidden="true" />
+      </div>
       <div className="ultimate-lantern-footer">
         <span className="ultimate-live-dot" />
         <span>{glow.name}</span>
