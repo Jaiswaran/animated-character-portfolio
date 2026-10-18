@@ -119,7 +119,7 @@ function ObservatoryContent() {
         <HeroSection />
 
         {/* 2. Pip's complete five-scene story is the heart of the portfolio. */}
-        <OriginStorySection />
+        <OriginStorySection onOpenSecretStar={() => setIsEasterEggOpen(true)} />
 
         {/* 3. About Pip: the junior dream engineer behind the journey. */}
         <AboutSection />
@@ -134,11 +134,11 @@ function ObservatoryContent() {
         />
 
         {/* 7. Starlight Ledger Guestbook & Mechanical Odometer */}
-        <GuestbookSection onOpenEasterEgg={() => setIsEasterEggOpen(true)} />
+        <GuestbookSection />
       </main>
 
       {/* 8. Footer & Asset Credits with Secret Constellation */}
-      <FooterSection onOpenEasterEgg={() => setIsEasterEggOpen(true)} />
+      <FooterSection />
 
       {/* 9. Secret Easter Egg Modal with celebration burst and keyboard accessibility */}
       <EasterEggModal
