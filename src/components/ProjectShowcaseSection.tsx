@@ -240,6 +240,8 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       <span className="ultimate-lantern-star ultimate-lantern-star-two" aria-hidden="true">✧</span>
       <img
         src="/assets/pip_dream_lantern.png"
+        loading="lazy"
+        decoding="async"
         alt="Pip’s crescent moon dream lantern"
         className="ultimate-lantern-image"
         onError={(event) => { event.currentTarget.style.opacity = '0'; }}
@@ -474,17 +476,17 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       {/* FULL-SCREEN DEDICATED INVENTION MODAL */}
       {selectedProject && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
-          onMouseDown={(event) => {
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto overflow-x-hidden overscroll-contain"
+          onClick={(event) => {
             if (event.target === event.currentTarget) closeProject();
           }}
         >
           <section
             ref={modalRef}
-            className={`relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
+            className={`pip-project-dialog relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
               isFullScreen
-                ? 'fixed inset-0 w-screen h-screen rounded-none z-50 p-4 sm:p-8 overflow-y-auto'
-                : 'w-full max-w-5xl max-h-[92vh] rounded-3xl p-6 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
+                ? 'fixed inset-0 w-full max-w-full h-[100dvh] rounded-none z-50 p-3 sm:p-8 overflow-y-auto'
+                : 'w-full max-w-5xl max-h-[92dvh] rounded-3xl p-4 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
             }`}
             role="dialog"
             aria-modal="true"
@@ -493,12 +495,12 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
             style={{ '--project-accent': selectedProject.accent } as React.CSSProperties}
           >
             {/* Top Modal Navigation Header */}
-            <header className="flex items-center justify-between border-b border-rich-berry/15 dark:border-white/10 pb-4 mb-6">
-              <div className="flex items-center gap-3">
+            <header className="pip-project-dialog-header flex items-center justify-between border-b border-rich-berry/15 dark:border-white/10 pb-4 mb-6">
+              <div className="pip-project-dialog-brand flex items-center gap-3">
                 <span className="px-3 py-1 rounded-full bg-soft-blush dark:bg-plum border border-rich-berry/20 text-xs font-bubbly font-bold uppercase tracking-wider text-rich-berry dark:text-star-gold">
                   INVENTION {selectedProject.number} · {selectedProject.label}
                 </span>
-                <h2 id="ultimate-modal-title" className="font-serif-headline text-2xl sm:text-3xl font-bold text-plum dark:text-cream">
+                <h2 id="ultimate-modal-title" className="font-serif-headline text-xl sm:text-3xl font-bold text-plum dark:text-cream break-words">
                   {selectedProject.title}
                 </h2>
               </div>
@@ -508,7 +510,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                 <button
                   type="button"
                   onClick={closeProject}
-                  className="px-3 py-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm inline-flex items-center gap-1.5"
+                  className="min-h-11 px-3 py-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm inline-flex items-center gap-1.5"
                   title="Back to inventions"
                   aria-label="Back to inventions"
                 >
@@ -518,7 +520,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                 <button
                   type="button"
                   onClick={toggleFullScreen}
-                  className="p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm"
+                  className="min-h-11 min-w-11 p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm"
                   title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
                   aria-label={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
                 >
@@ -529,7 +531,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                   ref={closeButtonRef}
                   type="button"
                   onClick={closeProject}
-                  className="p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-rich-berry text-white hover:bg-rich-berry/90 transition-all shadow-sm"
+                  className="min-h-11 min-w-11 p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-rich-berry text-white hover:bg-rich-berry/90 transition-all shadow-sm"
                   title="Close Invention (Esc)"
                   aria-label="Close project"
                 >
