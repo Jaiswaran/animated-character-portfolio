@@ -119,7 +119,7 @@ export const HeroSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center pt-2 pb-6 sm:pb-12">
           {/* Left Column: Typography, Tagline, CTAs */}
-          <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
+          <div className="order-2 lg:order-1 lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
             {/* Status Sticker */}
             <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-soft-blush/40 border border-rich-berry/20 shadow-sm max-w-full">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping flex-shrink-0" />
@@ -189,7 +189,7 @@ export const HeroSection: React.FC = () => {
           </div>
 
           {/* Right Column: Pip's Official Cloud Avatar Artwork with subtle pointer-responsive movement */}
-          <div className="lg:col-span-5 flex justify-center">
+          <div className="order-1 lg:order-2 lg:col-span-5 flex justify-center">
             <div
               ref={cardRef}
               role="button"
