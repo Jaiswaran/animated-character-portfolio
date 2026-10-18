@@ -664,11 +664,15 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
       canvas.addEventListener('webglcontextlost', handleContextLost, false);
 
       resizeObserver = new ResizeObserver(() => {
-        resize();
-        if (reducedRef.current) drawScene(performance.now());
+        // Resizing a WebGL drawing buffer clears it, so always redraw after rotation/layout changes.
+        drawScene(performance.now());
+        if (!reducedRef.current && (Math.abs(targetX - gazeX) > 0.012 || Math.abs(targetY - gazeY) > 0.012)) {
+          startRef.current();
+        }
       });
       resizeObserver.observe(stage);
-      window.addEventListener('resize', resize, { passive: true });
+      const handleWindowResize = () => drawScene(performance.now());
+      window.addEventListener('resize', handleWindowResize, { passive: true });
 
       drawScene(performance.now());
       setWebglReady(true);
@@ -680,7 +684,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
         resizeObserver?.disconnect();
         visibilityObserver?.disconnect();
         canvas.removeEventListener('webglcontextlost', handleContextLost, false);
-        window.removeEventListener('resize', resize);
+        window.removeEventListener('resize', handleWindowResize);
         stage.removeEventListener('pointermove', handlePointerMove);
         stage.removeEventListener('pointerleave', resetGaze);
         gl?.deleteBuffer(positionBuffer);
