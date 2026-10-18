@@ -9,6 +9,7 @@ import { formatTime, getTempoLabel, calculateWindupPercentage, TUNES } from './l
 import { getGlowOption, GLOW_OPTIONS } from './nightlight.ts';
 import { getNextWaypointIndex, DELIVERY_WAYPOINTS } from './delivery.ts';
 import { formatOdometerDigits, validateDreamInput } from './counter.ts';
+import { calculateTilt } from './tilt.ts';
 
 test('lullaby: formatTime formats minutes and seconds correctly', () => {
   assert.equal(formatTime(0), '00:00');
@@ -53,4 +54,24 @@ test('counter: validateDreamInput catches empty or overlength submissions', () =
   assert.equal(validateDreamInput('Pip', '').isValid, false);
   assert.equal(validateDreamInput('  ', '  ').isValid, false);
   assert.equal(validateDreamInput('Luna', 'Wishing sweet dreams!').isValid, true);
+});
+
+
+test('character tilt: all four card corners stay within the requested angle', () => {
+  const rect = { left: 100, top: 50, width: 200, height: 100 };
+
+  assert.deepEqual(calculateTilt(100, 50, rect, 7), { rotateX: 7, rotateY: -7 });
+  assert.deepEqual(calculateTilt(300, 50, rect, 7), { rotateX: 7, rotateY: 7 });
+  assert.deepEqual(calculateTilt(100, 150, rect, 7), { rotateX: -7, rotateY: -7 });
+  assert.deepEqual(calculateTilt(300, 150, rect, 7), { rotateX: -7, rotateY: 7 });
+});
+
+test('character tilt: pointer positions beyond the card are clamped and invalid sizes reset', () => {
+  const rect = { left: 100, top: 50, width: 200, height: 100 };
+
+  assert.deepEqual(calculateTilt(900, -200, rect, 5), { rotateX: 5, rotateY: 5 });
+  assert.deepEqual(calculateTilt(0, 0, { left: 0, top: 0, width: 0, height: 100 }), {
+    rotateX: 0,
+    rotateY: 0,
+  });
 });
