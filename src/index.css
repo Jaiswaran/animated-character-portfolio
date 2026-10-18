@@ -1366,3 +1366,24 @@ body { overflow-x: clip; }
   .pip-story-art--nursery .pip-secret-star { animation: none !important; opacity: .72; }
   .pip-secret-dialog { animation: none !important; }
 }
+
+
+/* Lighthouse contrast fixes: keep muted editorial labels readable in both themes. */
+.pip-navigation-subtitle { color: #6d5349; }
+.dark .pip-navigation-subtitle { color: #e2d1d8; }
+#hero [class*="text-warm-brown/60"],
+#hero [class*="text-warm-brown/70"] { color: #6d5349; }
+.dark #hero [class*="text-warm-brown/60"],
+.dark #hero [class*="text-warm-brown/70"] { color: #e2d1d8; }
+#about .text-rich-berry.bg-soft-blush { color: #832e4d; }
+.dark #about .text-rich-berry.bg-soft-blush { color: #f3cf75; }
+#about .project-card [class*="text-warm-brown/70"],
+#about .project-card [class*="text-warm-brown/60"] { color: #6d5349; }
+.dark #about .project-card [class*="text-warm-brown/70"],
+.dark #about .project-card [class*="text-warm-brown/60"] { color: #e2d1d8; }
+#about .project-card [class*="text-amber-500"] { color: #8a4f00; }
+.dark #about .project-card [class*="text-amber-500"] { color: #ffd98f; }
+#guestbook [class*="text-warm-brown/70"],
+#guestbook [class*="text-warm-brown/60"] { color: #6d5349; }
+.dark #guestbook [class*="text-warm-brown/70"],
+.dark #guestbook [class*="text-warm-brown/60"] { color: #e2d1d8; }
