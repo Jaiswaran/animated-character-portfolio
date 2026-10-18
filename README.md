@@ -1,6 +1,6 @@
 # Pip's Midnight Observatory ✦
 
-A whimsical, early-web-inspired interactive portfolio centered on Pip, a junior dream engineer. The five-scene story—Observatory, Lullaby Lab, Nightlight Workshop, Rooftop Delivery, and Nursery—connects the portfolio's animated worlds into one journey. Each scene has fewer than 150 words, a keyboard-accessible chapter guide, animated SVG artwork, and a reduced-motion presentation.
+A whimsical, early-web-inspired interactive portfolio centered on Pip, a junior dream engineer. The five-scene story—Observatory, Lullaby Lab, Nightlight Workshop, Rooftop Delivery, and Nursery—connects the portfolio's animated worlds into one journey. Each scene has fewer than 150 words, a keyboard-accessible chapter guide, animated SVG artwork, and a reduced-motion presentation. The final scene contains one hidden, replayable Secret Star reveal.
 
 **Live site:** https://animated-character-portfolio-a18l.vercel.app  
 **Source:** https://github.com/Jaiswaran/animated-character-portfolio
@@ -38,6 +38,14 @@ bun run lint
 bun run test
 bun run build
 ```
+
+## Responsive and accessibility checks
+
+- Check phone widths from 320px upward for horizontal overflow; rotate to landscape and try each invention modal.
+- Open and close each invention with its Back/close button, Escape, backdrop, and browser Back, including after rotating the device.
+- Use keyboard Tab/Shift+Tab and Enter/Space to find and activate Pip's Secret Star in the final story scene; close with Escape and confirm focus returns to the star. Re-open it to verify the waking animation replays.
+- Repeat with interface sound effects muted and with `prefers-reduced-motion: reduce` enabled.
+- Use the GitHub Actions Lighthouse report to inspect measured performance, accessibility, best-practices, and SEO scores. Treat 95+ as a target, not a guaranteed score.
 
 ## Local-only data
 
