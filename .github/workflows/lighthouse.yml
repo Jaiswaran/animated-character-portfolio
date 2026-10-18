@@ -1,0 +1,121 @@
+name: Lighthouse production audit
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v2
+        id: chrome
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build production bundle
+        run: bun run build
+
+      - name: Install Lighthouse CLI
+        run: npm install --global lighthouse
+
+      - name: Start production preview
+        run: |
+          bunx vite preview --host 127.0.0.1 --port 4173 > /tmp/pip-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              echo "Production preview is ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/pip-preview.log
+          echo "Production preview did not start." >&2
+          exit 1
+
+      - name: Measure mobile Lighthouse scores
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          mkdir -p lighthouse-reports
+          lighthouse http://127.0.0.1:4173/ \
+            --chrome-path="$CHROME_PATH" \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+            --quiet \
+            --output=json \
+            --output-path=./lighthouse-reports/mobile.json
+
+      - name: Measure desktop Lighthouse scores
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          lighthouse http://127.0.0.1:4173/ \
+            --preset=desktop \
+            --chrome-path="$CHROME_PATH" \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+            --quiet \
+            --output=json \
+            --output-path=./lighthouse-reports/desktop.json
+
+      - name: Publish Lighthouse score summary
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const reports = [
+            ['Mobile', 'lighthouse-reports/mobile.json'],
+            ['Desktop', 'lighthouse-reports/desktop.json'],
+          ];
+          const rows = [];
+          for (const [label, path] of reports) {
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const score = (key) => Math.round((report.categories[key]?.score ?? 0) * 100);
+            const ms = (key) => Math.round(report.audits[key]?.numericValue ?? 0);
+            rows.push({
+              label,
+              performance: score('performance'),
+              accessibility: score('accessibility'),
+              bestPractices: score('best-practices'),
+              seo: score('seo'),
+              lcp: ms('largest-contentful-paint'),
+              cls: Number(report.audits['cumulative-layout-shift']?.numericValue ?? 0).toFixed(3),
+              tbt: ms('total-blocking-time'),
+            });
+          }
+
+          const table = [
+            '| Viewport | Performance | Accessibility | Best Practices | SEO | LCP (ms) | CLS | TBT (ms) |',
+            '|---|---:|---:|---:|---:|---:|---:|---:|',
+            ...rows.map((r) => `| ${r.label} | ${r.performance} | ${r.accessibility} | ${r.bestPractices} | ${r.seo} | ${r.lcp} | ${r.cls} | ${r.tbt} |`),
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Lighthouse results\n\n${table}\n\nScores are measurements of this production preview; 95+ is a target, not a build gate.\n`);
+          console.log(table);
+          NODE
+
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-production-reports
+          path: lighthouse-reports/*.json
+          if-no-files-found: error
+          retention-days: 14
