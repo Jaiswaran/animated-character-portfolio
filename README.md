@@ -53,17 +53,14 @@ bun run build
 
 Bedtime thoughts are stored in `public.bedtime_thoughts` and shared between visitors. The database migration is `supabase/migrations/20261018180000_create_bedtime_thoughts.sql`. It enables Row Level Security (RLS), lets visitors read and submit valid entries, and denies anonymous edits/deletes. The form validates names (1–40 characters) and thoughts (1–280 characters) both in the UI and at the database policy/constraint layer.
 
-Configure these Vite environment variables in local `.env` and in the production hosting environment:
+The frontend has browser-safe defaults for the dedicated `pip-bedtime-thoughts` project, so the guestbook can connect on deployment without a manual Vercel variable step. These are public values, not secrets. You can override them with Vite environment variables for local testing or key rotation:
 
 - `VITE_SUPABASE_URL` — project API URL.
 - `VITE_SUPABASE_PUBLISHABLE_KEY` — the project's public `sb_publishable_...` key.
 
 Only use the publishable key in browser code. Never use a Supabase secret or `service_role` key in a `VITE_` variable.
 
-For a fresh Supabase project:
-1. Run the SQL in `supabase/migrations/20261018180000_create_bedtime_thoughts.sql` using the Supabase SQL Editor or your migrations workflow.
-2. Set the two `VITE_SUPABASE_*` variables in the Vercel project (Production, Preview, and Development as needed).
-3. Redeploy the site so Vite bundles the public connection settings.
+For another Supabase project, run the SQL in `supabase/migrations/20261018180000_create_bedtime_thoughts.sql` using the SQL Editor or your migrations workflow, then override the two `VITE_SUPABASE_*` variables in the hosting environment and redeploy. Never place a secret/service-role key in frontend code or a `VITE_` variable.
 
 The mechanical odometer is still local to each browser; it is not server-wide or unique-visitor analytics.
 
