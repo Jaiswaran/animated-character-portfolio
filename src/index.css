@@ -1676,3 +1676,14 @@ html.modal-open {
 body.modal-open {
   overflow: hidden !important;
 }
+
+
+/* Wheel gestures on the delivery artwork drive the route instead of moving the page. */
+.dream-delivery-route-canvas {
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+}
+.dream-delivery-route-canvas:focus-visible {
+  outline: 3px solid #f3cf75;
+  outline-offset: 3px;
+}
