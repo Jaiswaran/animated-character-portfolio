@@ -15,16 +15,20 @@ import {
   Sun,
   Volume2,
   X,
+  Maximize2,
+  Minimize2,
+  Layers,
+  Send,
+  Compass,
 } from 'lucide-react';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 import { LullabyControls } from './LullabyLabSection';
 import { MELODY_PATTERNS } from '../utils/audioSynthesizer';
 import { GLOW_OPTIONS, GlowMode } from '../utils/nightlight';
-import { DELIVERY_WAYPOINTS } from '../utils/delivery';
 import { DreamDeliverySection } from './DreamDeliverySection';
+import { RattleBlockToys } from './RattleBlockToys';
 
 type ProjectId = 'nightlight' | 'routes' | 'toys';
-type ToyBuild = 'tower' | 'rocket' | 'house';
 
 interface ProjectCase {
   id: ProjectId;
@@ -60,10 +64,10 @@ const PROJECTS: ProjectCase[] = [
     label: 'THE DREAM COURIER',
     title: 'Dream Delivery Routes',
     tagline: 'A star on a mission.',
-    description: 'A tiny night courier follows a glowing flight path to deliver the right dream to the right rooftop.',
-    challenge: 'A map is easier to love when you can see a journey unfold instead of reading a static diagram.',
-    solution: 'Choose a dream port, launch the courier, and follow the animated star while delivery status updates in real time.',
-    capabilities: ['3 interactive dream ports', 'Animated SVG flight path', 'Live delivery feedback'],
+    description: 'A tiny night courier flies across midnight rooftops and cloud spires to drop sweet dreams into warm chimneys.',
+    challenge: 'A map is easier to love when you can fly through a living city, drop parcels, and see dreams come alive.',
+    solution: 'Dispatch Pip to five cozy rooftops, trigger chimney parcel drops, and watch sweet dream bubbles float into the sky.',
+    capabilities: ['5 interactive rooftops', 'Dynamic curved flight arcs', 'Chimney parcels & dream bubbles'],
     accent: '#f3cf75',
     action: 'Launch a dream',
   },
@@ -73,19 +77,13 @@ const PROJECTS: ProjectCase[] = [
     label: 'THE MIDNIGHT PLAYROOM',
     title: 'Rattle & Block Toys',
     tagline: 'Build a little impossible.',
-    description: 'A tactile little toy studio where colourful pieces become towers, tiny houses, or a rocket for the moon.',
-    challenge: 'The best portfolio moments invite people to play, not just admire a screenshot.',
-    solution: 'Build a toy piece by piece, change the colour story, and switch designs without leaving the page.',
-    capabilities: ['3 toy blueprints', 'Live block builder', 'Colour palette mixer'],
+    description: 'A tactile nursery playroom where visitors stack blocks, arrange shapes into towers, and shake chime rattles.',
+    challenge: 'The best portfolio moments invite people to play, arrange real shapes, test stability, and build high.',
+    solution: 'Arrange cubes, arches, steeples, and rattles across 5 building columns to build towers and test stability.',
+    capabilities: ['8 tactile wooden shapes', '5-column stacking workbench', 'Stability test & chime rattles'],
     accent: '#f1c9d6',
     action: 'Build something lovely',
   },
-];
-
-const TOY_PALETTES = [
-  ['#a34063', '#f3cf75', '#d9c8ef', '#7aa2f7', '#f1c9d6', '#a8d5ba'],
-  ['#635b9a', '#a7c7e7', '#f4d58d', '#e8a4a4', '#9fc9b6', '#fff8f1'],
-  ['#ed9d8b', '#e8c96d', '#9fc9b6', '#b7a0d8', '#f5dbe4', '#fff8f1'],
 ];
 
 interface ProjectShowcaseSectionProps {
@@ -105,23 +103,41 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
 }) => {
   const { play } = useSoundEffects();
   const [selectedProject, setSelectedProject] = useState<ProjectCase | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(true); // Default to full screen as requested
   const [isNightPreview, setIsNightPreview] = useState(true);
-  const [toyCount, setToyCount] = useState(4);
-  const [toyBuild, setToyBuild] = useState<ToyBuild>('tower');
-  const [toyPaletteIndex, setToyPaletteIndex] = useState(0);
+
+  // Toys summary state for the card
+  const [toyStats, setToyStats] = useState({ height: 4, total: 8 });
+
+  const handleToyHeightChange = React.useCallback((height: number, total: number) => {
+    setToyStats((prev) => {
+      if (prev.height === height && prev.total === total) return prev;
+      return { height, total };
+    });
+  }, []);
+
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const glow = GLOW_OPTIONS.find((item) => item.id === activeGlow) || GLOW_OPTIONS[0];
   const isLullabyAudible = lullaby.isPlaying && !lullaby.isMuted;
-  const toyColors = TOY_PALETTES[toyPaletteIndex];
 
+  // Open modal in full screen
   const openProject = (project: ProjectCase) => {
     play('button-click');
+    setIsFullScreen(true); // Always open in full screen mode
     setSelectedProject(project);
   };
 
-  const closeProject = () => setSelectedProject(null);
+  const closeProject = () => {
+    play('button-click');
+    setSelectedProject(null);
+  };
+
+  const toggleFullScreen = () => {
+    play('button-click');
+    setIsFullScreen((prev) => !prev);
+  };
 
   const toggleLullaby = () => {
     play('button-click');
@@ -138,24 +154,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     onSelectGlow(mode);
   };
 
-  const addToyPiece = () => {
-    if (toyCount >= 9) return;
-    play('button-click');
-    setToyCount((count) => Math.min(9, count + 1));
-  };
-
-  const selectToyBuild = (build: ToyBuild) => {
-    play('button-click');
-    setToyBuild(build);
-  };
-
-  const resetToy = () => {
-    play('button-click');
-    setToyCount(4);
-    setToyBuild('tower');
-    setToyPaletteIndex(0);
-  };
-
+  // Keyboard navigation and backdrop lock
   useEffect(() => {
     if (!selectedProject) return;
 
@@ -168,7 +167,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setSelectedProject(null);
+        closeProject();
         return;
       }
 
@@ -198,6 +197,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     };
   }, [selectedProject]);
 
+  // Card Artwork 1: Nightlight
   const renderNightlightArtwork = (large = false) => (
     <div
       className={'ultimate-lantern-scene' + (large ? ' ultimate-art-large' : '') + (isNightPreview ? ' is-night' : ' is-day')}
@@ -223,67 +223,74 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     </div>
   );
 
-  const renderRouteArtwork = (large = false) => (
-    <div className={'ultimate-route-art' + (large ? ' ultimate-art-large' : '')}>
+  // Card Artwork 2: Rooftop Map preview
+  const renderRouteArtwork = () => (
+    <div className="ultimate-route-art relative overflow-hidden flex flex-col justify-between p-3">
       <div className="ultimate-route-sky" aria-hidden="true">
         <span>✦</span><span>·</span><span>✧</span><span>·</span><span>✦</span><span>·</span><span>✧</span>
       </div>
-      <div className="ultimate-route-label ultimate-route-label-left">WHISPERING ATTIC</div>
-      <div className="ultimate-route-label ultimate-route-label-mid">LIGHTHOUSE NURSERY</div>
-      <div className="ultimate-route-label ultimate-route-label-right">CLOUD NINE SPIRE</div>
-      <svg viewBox="0 0 520 230" role="img" aria-label="A golden star moves along a curved route between three dream destinations">
+      <div className="flex justify-between items-center text-[11px] font-bubbly font-bold text-cream/70 z-10 px-2 pt-1">
+        <span>WHISPERING GABLE</span>
+        <span>BEACON POINT</span>
+        <span>CLOUD SPIRE</span>
+      </div>
+      <svg viewBox="0 0 520 200" className="w-full h-36" role="img" aria-label="Curved flight route across rooftops">
         <defs>
-          <linearGradient id={large ? 'ultimate-route-gradient-large' : 'ultimate-route-gradient'} x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id="card-route-grad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#f1c9d6" />
-            <stop offset="52%" stopColor="#d9c8ef" />
-            <stop offset="100%" stopColor="#f3cf75" />
+            <stop offset="50%" stopColor="#f3cf75" />
+            <stop offset="100%" stopColor="#d9c8ef" />
           </linearGradient>
         </defs>
-        <path d="M38 145 C95 8 170 48 240 110 S365 207 482 47" fill="none" stroke="rgba(255,248,241,.1)" strokeWidth="14" strokeLinecap="round" />
-        <path d="M38 145 C95 8 170 48 240 110 S365 207 482 47" fill="none" stroke={'url(#' + (large ? 'ultimate-route-gradient-large' : 'ultimate-route-gradient') + ')'} strokeWidth="3" strokeLinecap="round" strokeDasharray="5 12" className="ultimate-flight-line" />
-        {[{x:38,y:145},{x:240,y:110},{x:482,y:47}].map((point,index) => (
-          <g key={index}>
-            <circle cx={point.x} cy={point.y} r="19" fill={index === 0 ? '#a34063' : index === 1 ? '#9f91da' : '#f3cf75'} opacity=".15" />
-            <circle cx={point.x} cy={point.y} r="7" fill={index === 0 ? '#f1c9d6' : index === 1 ? '#d9c8ef' : '#f3cf75'} stroke="#fff8f1" strokeWidth="2" />
+        {/* Silhouette rooftops */}
+        <polygon points="20,200 40,150 90,120 140,150 160,200" fill="#2d203f" />
+        <polygon points="210,200 230,130 260,80 290,130 310,200" fill="#261b36" />
+        <polygon points="380,200 400,140 440,90 480,140 500,200" fill="#2d2242" />
+
+        {/* Flight path curve */}
+        <path
+          d="M 90 120 C 170 30, 200 50, 260 80 C 320 110, 390 40, 440 90"
+          fill="none"
+          stroke="url(#card-route-grad)"
+          strokeWidth="3.5"
+          strokeDasharray="6 8"
+          strokeLinecap="round"
+        />
+
+        {/* Delivery waypoints */}
+        {[
+          { x: 90, y: 120, label: '🐰' },
+          { x: 260, y: 80, label: '🕰️' },
+          { x: 440, y: 90, label: '⛵' },
+        ].map((pt, idx) => (
+          <g key={idx} transform={`translate(${pt.x}, ${pt.y})`}>
+            <circle r="14" fill="#f3cf75" opacity="0.2" className="animate-ping" />
+            <circle r="8" fill="#a34063" stroke="#fff8f1" strokeWidth="2" />
+            <text x="0" y="-12" textAnchor="middle" fontSize="11" fill="#fff">
+              {pt.label}
+            </text>
           </g>
         ))}
-        <g className="ultimate-flying-star">
-          <path d="M0 -12 L3 -3 L12 0 L3 3 L0 12 L-3 3 L-12 0 L-3 -3 Z" fill="#f3cf75" />
-          <circle r="16" fill="#f3cf75" opacity=".12" />
+
+        {/* Flying Pip avatar preview */}
+        <g transform="translate(260, 50)" className="animate-bounce">
+          <circle r="12" fill="#f3cf75" opacity="0.3" />
+          <image
+            href="/assets/pip_avatar_cloud.png"
+            x="-18"
+            y="-18"
+            width="36"
+            height="36"
+          />
         </g>
       </svg>
-      <div className={'ultimate-flight-status' + (deliveryStatus === 'dispatching' ? ' is-moving' : '')}>
-        <span className="ultimate-live-dot" />
-        {deliveryStatus === 'dispatching' ? 'COURIER IN FLIGHT' : deliveryStatus === 'delivered' ? 'DREAM DELIVERED SAFELY' : 'ROUTES CLEAR · READY TO FLY'}
+      <div className="ultimate-flight-status z-10 flex items-center justify-between text-xs px-2 pb-1 font-bubbly">
+        <span className="flex items-center gap-1.5 text-emerald-300">
+          <span className="ultimate-live-dot" />
+          ROOFTOP COURIER ACTIVE
+        </span>
+        <span className="text-cream/70 text-[11px]">Click to open full map →</span>
       </div>
-    </div>
-  );
-
-  const renderToyArtwork = (large = false) => (
-    <div className={'ultimate-toy-art' + (large ? ' ultimate-art-large' : '')}>
-      <div className="ultimate-toy-stamp">PIP’S PLAYROOM <span>✦</span></div>
-      <div className={'ultimate-toy-builder ultimate-build-' + toyBuild} aria-label={toyBuild + ' toy with ' + toyCount + ' pieces'}>
-        {toyBuild === 'rocket' && <div className="ultimate-rocket-nose" aria-hidden="true" />}
-        {toyBuild === 'house' && <div className="ultimate-house-roof" aria-hidden="true" />}
-        <div className="ultimate-toy-stack">
-          {Array.from({ length: toyCount }, (_, index) => (
-            <span
-              key={index}
-              className={'ultimate-toy-piece ultimate-piece-' + (index % 3)}
-              style={{
-                backgroundColor: toyColors[index % toyColors.length],
-                animationDelay: (index * 45) + 'ms',
-              }}
-            >
-              {index % 3 === 0 ? '✦' : index % 3 === 1 ? '☾' : '•'}
-            </span>
-          ))}
-        </div>
-        {toyBuild === 'rocket' && <div className="ultimate-rocket-fins" aria-hidden="true"><i /><i /></div>}
-        {toyBuild === 'house' && <div className="ultimate-house-door" aria-hidden="true" />}
-      </div>
-      <div className="ultimate-toy-floor" />
-      <div className="ultimate-toy-counter">{toyCount} / 9 PIECES · {toyBuild.toUpperCase()} BUILD</div>
     </div>
   );
 
@@ -297,34 +304,55 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       <div className="ultimate-background-glow ultimate-background-glow-left" aria-hidden="true" />
       <div className="ultimate-background-glow ultimate-background-glow-right" aria-hidden="true" />
       <div className="ultimate-showcase-inner">
-        <header className="ultimate-showcase-heading">
-          <div className="ultimate-eyebrow">
+        <header className="ultimate-showcase-heading text-center">
+          <div className="ultimate-eyebrow inline-flex items-center">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
             <span>PIP’S MIDNIGHT OBSERVATORY</span>
             <span className="ultimate-eyebrow-separator">✦</span>
-            <span>THREE WORLDS TO EXPLORE</span>
+            <span>THREE INTERACTIVE INVENTIONS</span>
           </div>
           <h2 id="ultimate-showcase-title" className="ultimate-showcase-title">
             Tiny inventions.<br /><span>Huge dreams.</span>
           </h2>
-          <p className="ultimate-showcase-subtitle">Choose a world. Touch the details. Make a little magic.</p>
+          <p className="ultimate-showcase-subtitle">
+            Click any invention to step inside in full screen. Stack towers, dispatch midnight dreams, and wind the lullaby engine.
+          </p>
         </header>
 
+        {/* 3-Column Showcase Grid */}
         <div className="ultimate-project-grid">
           {PROJECTS.map((project, index) => (
             <article
               key={project.id}
-              className={'ultimate-project-card ultimate-project-' + project.id}
+              tabIndex={0}
+              role="button"
+              onClick={() => openProject(project)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openProject(project);
+                }
+              }}
+              className={'ultimate-project-card ultimate-project-' + project.id + ' cursor-pointer group focus:outline-none focus:ring-4 focus:ring-rich-berry/30 dark:focus:ring-star-gold/40'}
               style={{ '--project-accent': project.accent, animationDelay: (index * 120) + 'ms' } as React.CSSProperties}
               data-project-card="true"
-              aria-labelledby={'ultimate-project-title-' + project.id}
+              aria-label={'Open ' + project.title + ' in full screen'}
             >
               <div className="ultimate-project-meta">
                 <span className="ultimate-project-number">{project.number}<i> / 03</i></span>
                 <span className="ultimate-project-class">{project.label}</span>
               </div>
 
-              <div className="ultimate-project-visual">
+              {/* Visual Card Artwork */}
+              <div
+                className="ultimate-project-visual"
+                onClick={(e) => {
+                  // Prevent nested button clicks inside controls from propagating to openProject if user interacted with quick buttons
+                  if ((e.target as HTMLElement).closest('button')) {
+                    e.stopPropagation();
+                  }
+                }}
+              >
                 {project.id === 'nightlight' && (
                   <>
                     {renderNightlightArtwork()}
@@ -350,47 +378,56 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                     </div>
                   </>
                 )}
+
                 {project.id === 'routes' && renderRouteArtwork()}
+
                 {project.id === 'toys' && (
-                  <>
-                    {renderToyArtwork()}
-                    <div className="ultimate-art-controls ultimate-toy-quick-controls">
-                      <div className="ultimate-mini-palette" role="group" aria-label="Toy colour palette">
-                        {TOY_PALETTES.map((palette, paletteIndex) => (
-                          <button key={paletteIndex} type="button" aria-label={'Choose toy palette ' + (paletteIndex + 1)} aria-pressed={toyPaletteIndex === paletteIndex} className={toyPaletteIndex === paletteIndex ? 'is-selected' : ''} onClick={() => setToyPaletteIndex(paletteIndex)}>
-                            {palette.slice(0, 3).map((color) => <i key={color} style={{ backgroundColor: color }} />)}
-                          </button>
-                        ))}
-                      </div>
-                      <button type="button" className="ultimate-mini-add" onClick={addToyPiece} disabled={toyCount >= 9}>
-                        <Sparkles className="h-3.5 w-3.5" /> {toyCount >= 9 ? 'Max pieces' : 'Add piece +'}
-                      </button>
-                    </div>
-                  </>
+                  <div className="p-2">
+                    <RattleBlockToys
+                      compact={true}
+                      onHeightChange={handleToyHeightChange}
+                    />
+                  </div>
                 )}
               </div>
 
+              {/* Copy */}
               <div className="ultimate-project-copy">
                 <div className="ultimate-project-title-row">
-                  <span className="ultimate-project-glyph" aria-hidden="true">{project.id === 'nightlight' ? '☾' : project.id === 'routes' ? '✦' : '▧'}</span>
+                  <span className="ultimate-project-glyph" aria-hidden="true">
+                    {project.id === 'nightlight' ? '☾' : project.id === 'routes' ? '✦' : '▧'}
+                  </span>
                   <h3 id={'ultimate-project-title-' + project.id}>{project.title}</h3>
-                  <span className="ultimate-project-arrow" aria-hidden="true"><ArrowUpRight className="h-5 w-5" /></span>
+                  <span className="ultimate-project-arrow group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" aria-hidden="true">
+                    <ArrowUpRight className="h-5 w-5" />
+                  </span>
                 </div>
                 <p className="ultimate-project-tagline">{project.tagline}</p>
                 <p className="ultimate-project-description">{project.description}</p>
                 <div className="ultimate-capability-list">
-                  {project.capabilities.map((capability) => <span key={capability}><Check className="h-3.5 w-3.5" />{capability}</span>)}
+                  {project.capabilities.map((capability) => (
+                    <span key={capability}>
+                      <Check className="h-3.5 w-3.5 text-rich-berry dark:text-star-gold" />
+                      {capability}
+                    </span>
+                  ))}
                 </div>
               </div>
 
+              {/* Card Footer with Full Screen Trigger */}
               <div className="ultimate-project-footer">
                 <span className="ultimate-project-live">
                   <i />
-                  {project.id === 'nightlight' ? glow.name : project.id === 'routes' ? (deliveryStatus === 'dispatching' ? 'IN FLIGHT' : deliveryStatus === 'delivered' ? 'DELIVERED' : 'READY TO DISPATCH') : toyCount === 9 ? 'MASTER BUILDER' : toyCount + ' PIECES BUILT'}
+                  {project.id === 'nightlight'
+                    ? glow.name
+                    : project.id === 'routes'
+                    ? (deliveryStatus === 'dispatching' ? 'IN FLIGHT' : 'ROOFTOPS CLEAR')
+                    : `${toyStats.height} Stories High`}
                 </span>
-                <button type="button" onClick={() => openProject(project)} className="ultimate-project-cta" aria-haspopup="dialog" aria-label={'Open ' + project.title}>
-                  <span>{project.action}</span><ArrowRight className="h-4 w-4" />
-                </button>
+                <span className="ultimate-project-cta group-hover:scale-102 transition-transform">
+                  <span>{project.action} (Full Screen)</span>
+                  <Maximize2 className="h-4 w-4" />
+                </span>
               </div>
             </article>
           ))}
@@ -398,135 +435,274 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
 
         <div className="ultimate-showcase-signoff">
           <span aria-hidden="true">✦</span>
-          <p>Made with moonlight, a little mischief, and a lot of love.</p>
+          <p>Click any invention above to open in the full screen experience.</p>
           <span aria-hidden="true">✦</span>
         </div>
       </div>
 
+      {/* FULL-SCREEN DEDICATED INVENTION MODAL */}
       {selectedProject && (
         <div
-          className="ultimate-modal-backdrop"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeProject();
           }}
         >
           <section
             ref={modalRef}
-            className="ultimate-project-modal"
+            className={`relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
+              isFullScreen
+                ? 'fixed inset-0 w-screen h-screen rounded-none z-50 p-4 sm:p-8 overflow-y-auto'
+                : 'w-full max-w-5xl max-h-[92vh] rounded-3xl p-6 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
+            }`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="ultimate-modal-title"
             aria-describedby="ultimate-modal-description"
             style={{ '--project-accent': selectedProject.accent } as React.CSSProperties}
           >
-            <button ref={closeButtonRef} type="button" className="ultimate-modal-close" onClick={closeProject} aria-label="Close project">
-              <X className="h-5 w-5" />
-            </button>
-            <div className="ultimate-modal-scroll">
-              <div className="ultimate-modal-heading">
-                <span className="ultimate-modal-kicker">PROJECT {selectedProject.number} · {selectedProject.label}</span>
-                <h2 id="ultimate-modal-title">{selectedProject.title}</h2>
-                <p id="ultimate-modal-description">{selectedProject.description}</p>
+            {/* Top Modal Navigation Header */}
+            <header className="flex items-center justify-between border-b border-rich-berry/15 dark:border-white/10 pb-4 mb-6">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 rounded-full bg-soft-blush dark:bg-plum border border-rich-berry/20 text-xs font-bubbly font-bold uppercase tracking-wider text-rich-berry dark:text-star-gold">
+                  INVENTION {selectedProject.number} · {selectedProject.label}
+                </span>
+                <h2 id="ultimate-modal-title" className="font-serif-headline text-2xl sm:text-3xl font-bold text-plum dark:text-cream">
+                  {selectedProject.title}
+                </h2>
               </div>
 
+              {/* Action Buttons: Fullscreen Toggle & Close */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleFullScreen}
+                  className="p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm"
+                  title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                  aria-label={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                >
+                  {isFullScreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+                </button>
+
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  onClick={closeProject}
+                  className="p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-rich-berry text-white hover:bg-rich-berry/90 transition-all shadow-sm"
+                  title="Close Invention (Esc)"
+                  aria-label="Close project"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </header>
+
+            {/* Modal Body Based on Project */}
+            <div className="flex-1 w-full space-y-6">
+              {/* Description */}
+              <p id="ultimate-modal-description" className="text-base sm:text-lg font-bubbly text-warm-brown/80 dark:text-cream/80 max-w-3xl">
+                {selectedProject.description}
+              </p>
+
+              {/* PROJECT A: NIGHTLIGHT COLLECTION */}
               {selectedProject.id === 'nightlight' && (
-                <div className="ultimate-modal-content">
-                  {renderNightlightArtwork(true)}
-                  <div className="ultimate-control-panel">
-                    <div className="ultimate-control-heading">
-                      <div><span>LIGHT ENGINE</span><h3>Set the mood</h3></div>
-                      <span className="ultimate-live-badge"><i /> LIVE</span>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <div className="lg:col-span-7">
+                      {renderNightlightArtwork(true)}
                     </div>
-                    <div className="ultimate-mood-grid" role="group" aria-label="Select lantern mood">
-                      {GLOW_OPTIONS.map((item) => (
-                        <button key={item.id} type="button" onClick={() => selectGlow(item.id)} className={activeGlow === item.id ? 'is-selected' : ''} aria-pressed={activeGlow === item.id}>
-                          <i style={{ backgroundColor: item.hex }} />
-                          <span><b>{item.name}</b><small>{item.subtitle}</small></span>
-                          {activeGlow === item.id && <Check className="h-4 w-4" />}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="ultimate-daynight-switch ultimate-daynight-modal" role="group" aria-label="Preview lighting">
-                      <button type="button" onClick={() => setIsNightPreview(false)} aria-pressed={!isNightPreview} className={!isNightPreview ? 'is-active' : ''}><Sun className="h-4 w-4" /> Day preview</button>
-                      <button type="button" onClick={() => setIsNightPreview(true)} aria-pressed={isNightPreview} className={isNightPreview ? 'is-active' : ''}><Moon className="h-4 w-4" /> Night preview</button>
-                    </div>
-                    <div className="ultimate-sound-panel">
-                      <div className="ultimate-control-heading">
-                        <div><span>SOUND DESIGN</span><h3>Wind the music box</h3></div>
-                        <Volume2 className="h-5 w-5 ultimate-sound-icon" />
-                      </div>
-                      <p>Soft synthesized bell tones, generated live in your browser.</p>
-                      <div className="ultimate-melody-options" role="group" aria-label="Choose lullaby melody">
-                        {MELODY_PATTERNS.map((pattern, index) => (
-                          <button key={pattern.id} type="button" onClick={() => { play('tune-select'); lullaby.setPattern(index); }} className={lullaby.activePatternIndex === index ? 'is-selected' : ''} aria-pressed={lullaby.activePatternIndex === index}>
-                            {pattern.name}
+
+                    <div className="lg:col-span-5 space-y-4">
+                      {/* Light Engine Controls */}
+                      <div className="bg-soft-blush/40 dark:bg-plum/40 border border-rich-berry/15 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-rich-berry dark:text-star-gold font-bubbly">
+                              LIGHT ENGINE
+                            </span>
+                            <h3 className="font-serif-headline text-lg font-bold text-plum dark:text-cream">
+                              Set Lantern Glow
+                            </h3>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                          </span>
+                        </div>
+
+                        {/* Mood selector buttons */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {GLOW_OPTIONS.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => selectGlow(item.id)}
+                              className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                                activeGlow === item.id
+                                  ? 'border-rich-berry dark:border-star-gold bg-white dark:bg-plum-dark shadow-md font-bold'
+                                  : 'border-rich-berry/10 dark:border-white/10 bg-white/40 dark:bg-white/5 hover:bg-white'
+                              }`}
+                            >
+                              <span className="w-5 h-5 rounded-full shadow-inner flex-shrink-0" style={{ backgroundColor: item.hex }} />
+                              <div className="truncate">
+                                <b className="text-xs block text-plum dark:text-cream">{item.name}</b>
+                                <small className="text-[10px] text-warm-brown/70 dark:text-cream/60">{item.subtitle}</small>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Day / Night preview */}
+                        <div className="flex gap-2 pt-2 border-t border-rich-berry/10 dark:border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => setIsNightPreview(false)}
+                            className={`flex-1 py-2 px-3 rounded-xl font-bubbly text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                              !isNightPreview ? 'bg-amber-100 text-warm-brown border border-amber-300' : 'bg-white/20'
+                            }`}
+                          >
+                            <Sun className="h-4 w-4 text-amber-500" /> Day Preview
                           </button>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() => setIsNightPreview(true)}
+                            className={`flex-1 py-2 px-3 rounded-xl font-bubbly text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                              isNightPreview ? 'bg-plum text-cream border border-star-gold' : 'bg-white/20'
+                            }`}
+                          >
+                            <Moon className="h-4 w-4 text-star-gold" /> Night Preview
+                          </button>
+                        </div>
                       </div>
-                      <div className="ultimate-sound-actions">
-                        <button type="button" onClick={toggleLullaby} className="ultimate-sound-play">
-                          {isLullabyAudible ? <><span className="ultimate-pause-icon">Ⅱ</span> Pause lullaby</> : <><Play className="h-4 w-4 fill-current" /> Play lullaby</>}
-                        </button>
-                        <button type="button" onClick={() => { play('wind-key'); lullaby.windUp(25); }} className="ultimate-wind-key">
-                          <RotateCw className="h-4 w-4" /> Wind key +25%
-                        </button>
-                      </div>
-                      <div className="ultimate-wind-meter">
-                        <div><span>SPRING POWER</span><b>{lullaby.windup}%</b></div>
-                        <div className="ultimate-wind-track"><span style={{ width: Math.max(0, Math.min(100, lullaby.windup)) + '%' }} /></div>
+
+                      {/* Music Box Synthesizer */}
+                      <div className="bg-soft-blush/40 dark:bg-plum/40 border border-rich-berry/15 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-rich-berry dark:text-star-gold font-bubbly">
+                              SOUND DESIGN
+                            </span>
+                            <h3 className="font-serif-headline text-lg font-bold text-plum dark:text-cream">
+                              Live Music Box
+                            </h3>
+                          </div>
+                          <Volume2 className="h-5 w-5 text-rich-berry dark:text-star-gold" />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {MELODY_PATTERNS.map((pattern, idx) => (
+                            <button
+                              key={pattern.id}
+                              type="button"
+                              onClick={() => {
+                                play('tune-select');
+                                lullaby.setPattern(idx);
+                              }}
+                              className={`p-2 rounded-xl border text-xs font-bubbly font-bold truncate transition-all ${
+                                lullaby.activePatternIndex === idx
+                                  ? 'bg-rich-berry text-white border-rich-berry'
+                                  : 'bg-white/60 dark:bg-white/10 text-plum dark:text-cream border-rich-berry/15'
+                              }`}
+                            >
+                              {pattern.name}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={toggleLullaby}
+                            className="flex-1 py-2.5 px-4 rounded-xl bg-star-gold hover:bg-amber-300 text-warm-brown font-bubbly font-bold text-xs flex items-center justify-center gap-2 shadow transition-all"
+                          >
+                            {isLullabyAudible ? 'Pause Lullaby' : <><Play className="h-4 w-4 fill-current" /> Play Lullaby</>}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              play('wind-key');
+                              lullaby.windUp(25);
+                            }}
+                            className="py-2.5 px-3 rounded-xl border border-rich-berry/20 bg-cream dark:bg-plum-dark text-plum dark:text-cream font-bubbly font-bold text-xs flex items-center gap-1.5"
+                          >
+                            <RotateCw className="h-4 w-4" /> Wind +25%
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="ultimate-project-story">
-                    <div><span>THE IDEA</span><p>{selectedProject.challenge}</p></div>
-                    <div><span>THE MAGIC</span><p>{selectedProject.solution}</p></div>
+
+                  {/* Invention Story Footnotes */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-rich-berry/15 dark:border-white/10">
+                    <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-rich-berry">
+                      <span className="text-xs font-bold text-rich-berry dark:text-star-gold uppercase tracking-wider">
+                        THE IDEA
+                      </span>
+                      <p className="text-sm font-bubbly mt-1 text-warm-brown/80 dark:text-cream/80">
+                        {selectedProject.challenge}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-star-gold">
+                      <span className="text-xs font-bold text-rich-berry dark:text-star-gold uppercase tracking-wider">
+                        THE MAGIC
+                      </span>
+                      <p className="text-sm font-bubbly mt-1 text-warm-brown/80 dark:text-cream/80">
+                        {selectedProject.solution}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
 
+              {/* PROJECT B: DREAM DELIVERY ROUTES */}
               {selectedProject.id === 'routes' && (
-                <div className="ultimate-modal-content ultimate-route-modal-content">
-                  <DreamDeliverySection compact onStatusChange={onDeliveryStatusChange} />
-                  <div className="ultimate-project-story ultimate-route-story">
-                    <div><span>THE IDEA</span><p>{selectedProject.challenge}</p></div>
-                    <div><span>THE MAGIC</span><p>{selectedProject.solution}</p></div>
+                <div className="space-y-6">
+                  {/* Reconstructed Panoramic Rooftop Map Component */}
+                  <DreamDeliverySection compact={false} onStatusChange={onDeliveryStatusChange} />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-rich-berry/15 dark:border-white/10">
+                    <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-rich-berry">
+                      <span className="text-xs font-bold text-rich-berry dark:text-star-gold uppercase tracking-wider">
+                        THE CONCEPT
+                      </span>
+                      <p className="text-sm font-bubbly mt-1 text-warm-brown/80 dark:text-cream/80">
+                        Pip uses an interactive celestial dispatch map to fly across midnight rooftops, delivering custom dreams to sleeping children through cozy chimneys.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-star-gold">
+                      <span className="text-xs font-bold text-rich-berry dark:text-star-gold uppercase tracking-wider">
+                        HOW TO FLY
+                      </span>
+                      <p className="text-sm font-bubbly mt-1 text-warm-brown/80 dark:text-cream/80">
+                        Click on any house or rooftop station to calculate a smooth curved trajectory for Pip, drop a golden dream parcel into the chimney, and watch the dream bubble unfold!
+                      </p>
+                    </div>
                   </div>
-                  <p className="ultimate-modal-note"><span>✦</span> Pick a destination on the map or send a dream to the next stop. Pip will do the rest.</p>
                 </div>
               )}
 
+              {/* PROJECT C: RATTLE & BLOCK TOYS */}
               {selectedProject.id === 'toys' && (
-                <div className="ultimate-modal-content">
-                  {renderToyArtwork(true)}
-                  <div className="ultimate-control-panel">
-                    <div className="ultimate-control-heading">
-                      <div><span>TOY WORKSHOP</span><h3>Build your dream toy</h3></div>
-                      <span className="ultimate-build-count">{toyCount} / 9</span>
+                <div className="space-y-6">
+                  {/* Full Interactive Rattle & Block Toys Workbench */}
+                  <RattleBlockToys compact={false} onHeightChange={handleToyHeightChange} />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-rich-berry/15 dark:border-white/10">
+                    <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-rich-berry">
+                      <span className="text-xs font-bold text-rich-berry dark:text-star-gold uppercase tracking-wider">
+                        TACTILE BUILDING
+                      </span>
+                      <p className="text-sm font-bubbly mt-1 text-warm-brown/80 dark:text-cream/80">
+                        Choose wooden shapes from the tray—alphabet cubes, Roman arches, spires, and chime rattles. Drop them into any column to arrange towers or castles of your own design.
+                      </p>
                     </div>
-                    <div className="ultimate-build-picker" role="group" aria-label="Choose toy blueprint">
-                      <button type="button" className={toyBuild === 'tower' ? 'is-selected' : ''} aria-pressed={toyBuild === 'tower'} onClick={() => selectToyBuild('tower')}><span>▥</span><b>Star tower</b><small>Stack it tall</small></button>
-                      <button type="button" className={toyBuild === 'house' ? 'is-selected' : ''} aria-pressed={toyBuild === 'house'} onClick={() => selectToyBuild('house')}><span>⌂</span><b>Cloud house</b><small>Build a home</small></button>
-                      <button type="button" className={toyBuild === 'rocket' ? 'is-selected' : ''} aria-pressed={toyBuild === 'rocket'} onClick={() => selectToyBuild('rocket')}><span>♢</span><b>Moon rocket</b><small>Fly away</small></button>
+                    <div className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border-l-4 border-star-gold">
+                      <span className="text-xs font-bold text-rich-berry dark:text-star-gold uppercase tracking-wider">
+                        PLAYFUL FEEDBACK
+                      </span>
+                      <p className="text-sm font-bubbly mt-1 text-warm-brown/80 dark:text-cream/80">
+                        Click the rattles to shake them with gentle sound and sparkles, test the tower's balance with spring physics, or load classic blueprints to inspire your creations!
+                      </p>
                     </div>
-                    <div className="ultimate-toy-control-actions">
-                      <button type="button" onClick={addToyPiece} disabled={toyCount >= 9}><Sparkles className="h-4 w-4" />{toyCount >= 9 ? 'Build complete!' : 'Add a piece'}</button>
-                      <button type="button" onClick={resetToy}><RotateCw className="h-4 w-4" />Start again</button>
-                    </div>
-                    <div className="ultimate-palette-picker" role="group" aria-label="Choose toy palette">
-                      {TOY_PALETTES.map((palette, index) => (
-                        <button key={index} type="button" aria-label={'Choose colour palette ' + (index + 1)} aria-pressed={toyPaletteIndex === index} className={toyPaletteIndex === index ? 'is-selected' : ''} onClick={() => { play('button-click'); setToyPaletteIndex(index); }}>
-                          {palette.slice(0, 4).map((color) => <i key={color} style={{ backgroundColor: color }} />)}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="ultimate-build-progress" role="progressbar" aria-label="Toy building progress" aria-valuemin={0} aria-valuemax={9} aria-valuenow={toyCount}>
-                      <span style={{ width: (toyCount / 9 * 100) + '%' }} />
-                    </div>
-                    <p className="ultimate-build-message" role="status"><Check className="h-4 w-4" />{toyCount === 9 ? 'You built a masterpiece. Pip approves!' : 'A lovely start. ' + (9 - toyCount) + ' piece' + (9 - toyCount === 1 ? '' : 's') + ' left to finish this toy.'}</p>
-                  </div>
-                  <div className="ultimate-project-story">
-                    <div><span>THE IDEA</span><p>{selectedProject.challenge}</p></div>
-                    <div><span>THE MAGIC</span><p>{selectedProject.solution}</p></div>
                   </div>
                 </div>
               )}

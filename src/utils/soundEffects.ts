@@ -13,7 +13,12 @@ export type SoundEffectType =
   | 'easter-egg-open'
   | 'easter-egg-close'
   | 'guestbook-submit'
-  | 'chaos-toggle';
+  | 'chaos-toggle'
+  | 'block-place'
+  | 'toy-rattle'
+  | 'tower-wobble'
+  | 'tower-celebrate'
+  | 'parcel-drop';
 
 export interface SoundEffectsManager {
   play: (type: SoundEffectType) => void;
@@ -269,6 +274,103 @@ export class WebAudioSoundEffects implements SoundEffectsManager {
             osc.start(start);
             osc.stop(start + 0.28);
           });
+          break;
+        }
+
+        case 'block-place': {
+          // Warm wooden xylophone/toy block clack
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(540, t0);
+          osc.frequency.exponentialRampToValueAtTime(320, t0 + 0.08);
+
+          gain.gain.setValueAtTime(0.22, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.sfxGain);
+          osc.start(t0);
+          osc.stop(t0 + 0.1);
+          break;
+        }
+
+        case 'toy-rattle': {
+          // Gentle maraca shaker sound
+          const bursts = [0, 0.035, 0.075, 0.115];
+          bursts.forEach((offset, idx) => {
+            const start = t0 + offset;
+            const osc = this.ctx!.createOscillator();
+            const gain = this.ctx!.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(1200 + (idx % 2) * 400, start);
+            gain.gain.setValueAtTime(0.06, start);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.028);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain!);
+            osc.start(start);
+            osc.stop(start + 0.03);
+          });
+          break;
+        }
+
+        case 'tower-wobble': {
+          // Playful spring wobble
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(380, t0);
+          osc.frequency.linearRampToValueAtTime(520, t0 + 0.08);
+          osc.frequency.linearRampToValueAtTime(340, t0 + 0.18);
+          osc.frequency.linearRampToValueAtTime(440, t0 + 0.26);
+
+          gain.gain.setValueAtTime(0.12, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.3);
+
+          osc.connect(gain);
+          gain.connect(this.sfxGain);
+          osc.start(t0);
+          osc.stop(t0 + 0.32);
+          break;
+        }
+
+        case 'tower-celebrate': {
+          // Sweet triumphant starlight fan-fare
+          const fanfare = [523.25, 659.25, 783.99, 1046.5, 1318.51];
+          fanfare.forEach((freq, idx) => {
+            const start = t0 + idx * 0.08;
+            const osc = this.ctx!.createOscillator();
+            const gain = this.ctx!.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, start);
+
+            gain.gain.setValueAtTime(0.14, start);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+
+            osc.connect(gain);
+            gain.connect(this.sfxGain!);
+            osc.start(start);
+            osc.stop(start + 0.48);
+          });
+          break;
+        }
+
+        case 'parcel-drop': {
+          // Soft whoosh-plop chime
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, t0);
+          osc.frequency.exponentialRampToValueAtTime(587.33, t0 + 0.15);
+
+          gain.gain.setValueAtTime(0.16, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+
+          osc.connect(gain);
+          gain.connect(this.sfxGain);
+          osc.start(t0);
+          osc.stop(t0 + 0.22);
           break;
         }
       }
