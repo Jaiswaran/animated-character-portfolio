@@ -46,9 +46,10 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
   const { play, isMuted: isSfxMuted, toggleMute: onToggleSfx } = useSoundEffects();
 
   const navLinks = [
+    { label: 'The Observatory', href: '#origin' },
     { label: 'About Pip', href: '#about' },
     { label: 'Three Dream Worlds', href: '#projects' },
-    { label: 'The Observatory', href: '#origin' },
+    { label: 'Guestbook', href: '#guestbook' },
   ];
 
   const handleNavClick = () => {
@@ -118,7 +119,7 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
 
         {/* Desktop Navigation Links */}
         <nav
-          className="hidden xl:flex items-center gap-5 font-bubbly text-xs tracking-wide uppercase font-semibold"
+          className="hidden xl:flex items-center gap-4 font-bubbly text-xs tracking-wide uppercase font-semibold whitespace-nowrap"
           aria-label="Main Navigation"
         >
           {navLinks.map((link) => (
@@ -126,7 +127,7 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({
               key={link.href}
               href={link.href}
               onClick={handleNavClick}
-              className="text-warm-brown/80 hover:text-rich-berry dark:text-cream/80 dark:hover:text-star-gold transition-colors py-1"
+              className="text-warm-brown/80 hover:text-rich-berry dark:text-cream/80 dark:hover:text-star-gold transition-colors py-1 whitespace-nowrap"
             >
               {link.label}
             </a>

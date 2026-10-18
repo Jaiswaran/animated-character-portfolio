@@ -2,17 +2,20 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Pip, built as a high-fidelity 3D character with Three.js matching the official avatar art.
+ * Pip 3D Scene (Three.js) — Photo-Faithful 3D Relief & Shader-Driven Eye/Head Rig.
  *
- *  - Eyes & Head: glowing pupils and head rotate smoothly to track the cursor anywhere on screen.
- *  - Click / Tap: click Pip's body/cloud to wave and hop, tap his head to boop it, drag to spin him in 3D.
- *  - Idle: gentle floating on his cloud cushion, random blinks, and ambient look-around.
- *
- * With prefers-reduced-motion the same model is rendered once as a still frame.
+ * Built from Pip's official portrait (/assets/pip_avatar_cloud.png) sculpted onto a
+ * high-density 3D relief mesh with real-time skeletal vertex deformation and a custom
+ * WebGL fragment shader that renders live glowing golden pupils inside the matte cocoa sockets:
+ *  - Appears 100% identical to the uploaded reference photo at rest.
+ *  - Eyes & Head: glowing golden pupils glide smoothly inside the dark cocoa sockets toward
+ *    the cursor anywhere on the page (never clipping or leaving the sockets), while the 3D
+ *    sculpted head smoothly rotates (yaw, pitch, tilt) toward the pointer.
+ *  - Click / Tap: tap Pip's head to boop it (squash, bounce & blink); tap his body/cloud to make
+ *    him wave his raised hand and hop cheerfully; drag to spin him in 3D space.
  */
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { clamp, damp, fitCameraDistance, limitToUnitCircle, pointerToGaze, type Gaze2D } from '../utils/gaze';
 
 export interface Pip3DSceneProps {
@@ -26,470 +29,425 @@ export interface Pip3DSceneProps {
   onError?: () => void;
 }
 
-type V3 = [number, number, number];
-
-const CAMERA_FOV = 30;
-const CONTENT_WIDTH = 5.6;
-const MIN_CAMERA_DISTANCE = 13.8;
-const EYE_REACH_X = 0.16;
-const EYE_REACH_Y = 0.18;
+const CAMERA_FOV = 26;
+const CONTENT_WIDTH = 4.35;
+const MIN_CAMERA_DISTANCE = 10.6;
 const IDLE_AFTER_MS = 4000;
-const WAVE_SECONDS = 1.6;
-const HOP_SECONDS = 0.5;
+const WAVE_SECONDS = 1.65;
+const HOP_SECONDS = 0.55;
 
-interface Eye {
-  group: THREE.Group;
-  pupil: THREE.Group;
-  rest: Gaze2D;
-}
+// World dimensions of the portrait relief mesh (matches 421:512 aspect ratio)
+const MESH_W = 4.21;
+const MESH_H = 5.12;
+const GRID_X = 88;
+const GRID_Y = 106;
 
-interface PipRig {
-  root: THREE.Group;
-  body: THREE.Group;
-  cloud: THREE.Group;
-  headPivot: THREE.Group;
-  headContent: THREE.Group;
-  eyes: Eye[];
-  rightArm: THREE.Group;
-  rightHand: THREE.Group;
-  leftArm: THREE.Group;
-  hitTargets: THREE.Object3D[];
-  floaters: { object: THREE.Object3D; baseY: number; phase: number; spin: number }[];
-  dispose: () => void;
+// Exact measured UV coordinates (0..1, top-left origin) from /assets/pip_avatar_cloud.png (421x512)
+const LEFT_PUPIL_REST = { u: 0.4375, v: 0.4045 };
+const RIGHT_PUPIL_REST = { u: 0.5846, v: 0.3760 };
+const LEFT_SOCKET_CENTER = { u: 0.4155, v: 0.3985 };
+const RIGHT_SOCKET_CENTER = { u: 0.5985, v: 0.3695 };
+
+interface ProcessedPortrait {
+  baseTexture: THREE.CanvasTexture;
+  socketMaskTexture: THREE.CanvasTexture;
+  alphaGrid: Float32Array;
+  gridW: number;
+  gridH: number;
 }
 
 /* ------------------------------------------------------------------ */
-/* Model Construction                                                  */
+/* Helpers & Image Processing                                          */
 /* ------------------------------------------------------------------ */
 
-function buildPip(): PipRig {
-  const geometries: THREE.BufferGeometry[] = [];
-  const materials: THREE.Material[] = [];
-  const geo = <T extends THREE.BufferGeometry>(g: T): T => {
-    geometries.push(g);
-    return g;
-  };
-  const mat = <T extends THREE.Material>(m: T): T => {
-    materials.push(m);
-    return m;
-  };
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
 
-  const unit = geo(new THREE.SphereGeometry(1, 44, 32));
+function gaussian2D(u: number, v: number, cu: number, cv: number, ru: number, rv: number): number {
+  const du = (u - cu) / ru;
+  const dv = (v - cv) / rv;
+  const d2 = du * du + dv * dv;
+  if (d2 >= 1) return 0;
+  const t = 1 - d2;
+  return t * t;
+}
 
-  // High-fidelity materials matching pip_avatar_cloud.jpg ------------------
-  const whiteHead = mat(new THREE.MeshPhysicalMaterial({
-    color: 0xfffaf5,
-    roughness: 0.25,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.2,
-  }));
-  const whiteHand = mat(new THREE.MeshPhysicalMaterial({
-    color: 0xfffaf5,
-    roughness: 0.35,
-    clearcoat: 0.3,
-  }));
-  const pyjamaCream = mat(new THREE.MeshStandardMaterial({
-    color: 0xfaf0d8,
-    roughness: 0.75,
-  }));
-  const capCream = mat(new THREE.MeshStandardMaterial({
-    color: 0xf8eed5,
-    roughness: 0.82,
-    side: THREE.DoubleSide,
-  }));
-  const cuffCream = mat(new THREE.MeshStandardMaterial({
-    color: 0xf3e6c3,
-    roughness: 0.85,
-  }));
-  const heartPink = mat(new THREE.MeshStandardMaterial({
-    color: 0xf2adc3,
-    roughness: 0.5,
-  }));
-  const bowPink = mat(new THREE.MeshStandardMaterial({
-    color: 0xf3a8c1,
-    roughness: 0.4,
-  }));
-  const socketDark = mat(new THREE.MeshPhysicalMaterial({
-    color: 0x2a1614,
-    roughness: 0.15,
-    clearcoat: 1,
-    clearcoatRoughness: 0.08,
-  }));
-  const featureDark = mat(new THREE.MeshStandardMaterial({
-    color: 0x331e1a,
-    roughness: 0.5,
-  }));
-  const blushPink = mat(new THREE.MeshStandardMaterial({
-    color: 0xf69eb4,
-    roughness: 0.7,
-  }));
-  const glowPupil = mat(new THREE.MeshBasicMaterial({
-    color: 0xffcb52,
-  }));
-  const glowCore = mat(new THREE.MeshBasicMaterial({
-    color: 0xfffbe6,
-  }));
-  const glowHalo = mat(new THREE.MeshBasicMaterial({
-    color: 0xffb84d,
-    transparent: true,
-    opacity: 0.35,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  }));
-  const goldStar = mat(new THREE.MeshStandardMaterial({
-    color: 0xf5d378,
-    roughness: 0.45,
-    metalness: 0.1,
-  }));
-  const moonGold = mat(new THREE.MeshStandardMaterial({
-    color: 0xf8dc8e,
-    roughness: 0.45,
-  }));
-  const lavenderStar = mat(new THREE.MeshStandardMaterial({
-    color: 0xd3c0eb,
-    roughness: 0.5,
-  }));
-  const cloudWhite = mat(new THREE.MeshStandardMaterial({
-    color: 0xfffaff,
-    roughness: 0.95,
-  }));
-  const pomBeige = mat(new THREE.MeshStandardMaterial({
-    color: 0xd8be9c,
-    roughness: 0.95,
-  }));
+/**
+ * Prepares the base portrait texture (with healed dark cocoa eye sockets and clean transparent
+ * outer background) plus a socket mask texture so the WebGL shader can render live glowing
+ * golden pupils inside the sockets with zero Z-clipping.
+ */
+function processPortraitImage(img: HTMLImageElement): ProcessedPortrait {
+  const w = img.naturalWidth || 421;
+  const h = img.naturalHeight || 512;
 
-  // Helpers -------------------------------------------------------------
-  const add = (
-    parent: THREE.Object3D,
-    geometry: THREE.BufferGeometry,
-    material: THREE.Material,
-    position: V3 = [0, 0, 0],
-    scale: V3 = [1, 1, 1],
-    rotation: V3 = [0, 0, 0],
-  ): THREE.Mesh => {
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(position[0], position[1], position[2]);
-    mesh.scale.set(scale[0], scale[1], scale[2]);
-    mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
-    parent.add(mesh);
-    return mesh;
-  };
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0, w, h);
 
-  const onEllipsoid = (center: V3, radii: V3, lon: number, lat: number) => {
-    const p = new THREE.Vector3(
-      center[0] + radii[0] * Math.cos(lat) * Math.sin(lon),
-      center[1] + radii[1] * Math.sin(lat),
-      center[2] + radii[2] * Math.cos(lat) * Math.cos(lon),
-    );
-    const n = new THREE.Vector3(
-      (p.x - center[0]) / (radii[0] * radii[0]),
-      (p.y - center[1]) / (radii[1] * radii[1]),
-      (p.z - center[2]) / (radii[2] * radii[2]),
-    ).normalize();
-    return { p, n };
-  };
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
 
-  const faceOutward = (object: THREE.Object3D, p: THREE.Vector3, n: THREE.Vector3) => {
-    object.position.copy(p);
-    object.lookAt(p.x + n.x, p.y + n.y, p.z + n.z);
-  };
+  // Create socket mask canvas (R channel = 1 inside dark cocoa eye sockets, 0 outside)
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w;
+  maskCanvas.height = h;
+  const maskCtx = maskCanvas.getContext('2d')!;
+  const maskImgData = maskCtx.createImageData(w, h);
+  const maskData = maskImgData.data;
+  const rawMask = new Float32Array(w * h);
 
-  const makeStarGeometry = (outer: number, inner: number, depth: number) => {
-    const shape = new THREE.Shape();
-    for (let i = 0; i < 10; i++) {
-      const radius = i % 2 === 0 ? outer : inner;
-      const angle = Math.PI / 2 + (i * Math.PI) / 5;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      if (i === 0) shape.moveTo(x, y);
-      else shape.lineTo(x, y);
-    }
-    shape.closePath();
-    const g = new THREE.ExtrudeGeometry(shape, {
-      depth,
-      bevelEnabled: true,
-      bevelSize: 0.1,
-      bevelThickness: 0.08,
-      bevelSegments: 4,
-      curveSegments: 8,
-    });
-    g.center();
-    return geo(g);
-  };
+  // 1. Build the exact dark eye socket mask for left and right eyes
+  for (let y = Math.floor(h * 0.29); y <= Math.ceil(h * 0.46); y++) {
+    for (let x = Math.floor(w * 0.33); x <= Math.ceil(w * 0.67); x++) {
+      const u = x / w;
+      const v = y / h;
+      const inLeftBox = Math.hypot((u - LEFT_SOCKET_CENTER.u) / 0.064, (v - LEFT_SOCKET_CENTER.v) / 0.050) < 1.0;
+      const inRightBox = Math.hypot((u - RIGHT_SOCKET_CENTER.u) / 0.064, (v - RIGHT_SOCKET_CENTER.v) / 0.050) < 1.0;
+      if (!inLeftBox && !inRightBox) continue;
 
-  const starGeo = makeStarGeometry(1, 0.52, 0.18);
-  const root = new THREE.Group();
+      const i = (y * w + x) * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
 
-  // Cloud Puff Nest -----------------------------------------------------
-  const cloud = new THREE.Group();
-  cloud.position.set(0, -2.5, 0);
-  root.add(cloud);
-  const puffs: [number, number, number, number][] = [
-    [0, 0.08, 0.1, 1.3],
-    [-1.28, -0.12, 0.15, 0.88],
-    [1.28, -0.12, 0.1, 0.88],
-    [-0.68, -0.08, 0.78, 0.84],
-    [0.68, -0.08, 0.78, 0.84],
-    [-1.68, -0.28, -0.2, 0.64],
-    [1.68, -0.28, -0.2, 0.64],
-    [0, -0.08, -0.82, 1.05],
-    [-0.92, -0.08, -0.62, 0.84],
-    [0.92, -0.08, -0.62, 0.84],
-    [0, -0.22, 0.95, 0.75],
-  ];
-  for (const [x, y, z, r] of puffs) add(cloud, unit, cloudWhite, [x, y, z], [r, r * 0.72, r]);
-
-  // Body / Pyjamas ------------------------------------------------------
-  const body = new THREE.Group();
-  root.add(body);
-
-  const torsoCenter: V3 = [0, -0.55, 0];
-  const torsoRadii: V3 = [0.8, 0.88, 0.72];
-  const torsoMesh = add(body, unit, pyjamaCream, torsoCenter, torsoRadii);
-
-  // Pink placket trim down front
-  const placketLine = geo(new THREE.CylinderGeometry(0.025, 0.025, 1.3, 16));
-  add(body, placketLine, heartPink, [0, -0.55, 0.71], [1, 1, 1], [0, 0, 0]);
-
-  // Pink buttons down the placket
-  for (const lat of [0.45, 0.15, -0.15, -0.42]) {
-    const { p, n } = onEllipsoid(torsoCenter, torsoRadii, 0, lat);
-    const button = add(body, unit, heartPink, [0, 0, 0], [0.055, 0.055, 0.038]);
-    faceOutward(button, p.clone().addScaledVector(n, 0.008), n);
-  }
-
-  // Little pink hearts scattered on pyjamas
-  const heartShape = new THREE.Shape();
-  heartShape.moveTo(0.25, 0.25);
-  heartShape.bezierCurveTo(0.25, 0.25, 0.2, 0, 0, 0);
-  heartShape.bezierCurveTo(-0.3, 0, -0.3, 0.35, -0.3, 0.35);
-  heartShape.bezierCurveTo(-0.3, 0.55, -0.1, 0.77, 0.25, 0.95);
-  heartShape.bezierCurveTo(0.6, 0.77, 0.8, 0.55, 0.8, 0.35);
-  heartShape.bezierCurveTo(0.8, 0.35, 0.8, 0, 0.5, 0);
-  heartShape.bezierCurveTo(0.35, 0, 0.25, 0.25, 0.25, 0.25);
-  const heartGeo = geo(new THREE.ShapeGeometry(heartShape, 12));
-  heartGeo.translate(-0.25, -0.47, 0);
-  heartGeo.scale(0.18, 0.18, 0.18);
-  const hearts: [number, number][] = [
-    [-0.72, 0.32], [-0.48, -0.05], [-0.88, -0.35], [-0.28, -0.58],
-    [0.52, 0.28], [0.78, -0.1], [0.42, -0.42], [0.92, 0.48],
-  ];
-  hearts.forEach(([lon, lat], i) => {
-    const { p, n } = onEllipsoid(torsoCenter, torsoRadii, lon, lat);
-    const heart = new THREE.Mesh(heartGeo, heartPink);
-    faceOutward(heart, p.clone().addScaledVector(n, 0.012), n);
-    heart.rotateZ((i % 2 === 0 ? 1 : -1) * 0.25);
-    body.add(heart);
-  });
-
-  // Legs with pink soles ------------------------------------------------
-  for (const side of [-1, 1]) {
-    add(body, unit, pyjamaCream, [side * 0.48, -1.28, 0.62], [0.35, 0.34, 0.62], [0, side * 0.15, 0]);
-    // Pink ankle cuff
-    add(body, geo(new THREE.TorusGeometry(0.31, 0.05, 12, 28)), heartPink, [side * 0.56, -1.28, 1.02], [1, 1, 1], [0, side * 0.15, 0]);
-    // Pink sole pad on the bottom of foot
-    add(body, unit, heartPink, [side * 0.6, -1.27, 1.22], [0.28, 0.29, 0.1], [-0.12, side * 0.15, 0]);
-  }
-
-  // Arms & Hands --------------------------------------------------------
-  const makeArm = (side: number) => {
-    const arm = new THREE.Group();
-    arm.position.set(side * 0.74, -0.02, 0.05);
-    add(arm, unit, pyjamaCream, [side * 0.42, 0, 0], [0.5, 0.21, 0.21]);
-    add(arm, geo(new THREE.TorusGeometry(0.2, 0.055, 12, 28)), heartPink, [side * 0.86, 0, 0], [1, 1, 1], [0, Math.PI / 2, 0]);
-    const hand = new THREE.Group();
-    hand.position.set(side * 1.05, 0, 0);
-    add(hand, unit, whiteHand, [0, 0, 0], [0.25, 0.21, 0.18]);
-    // Fingers/thumb
-    add(hand, unit, whiteHand, [side * 0.02, 0.13, 0.1], [0.095, 0.095, 0.095]);
-    arm.add(hand);
-    body.add(arm);
-    return { arm, hand };
-  };
-  const right = makeArm(1);
-  const left = makeArm(-1);
-  right.arm.rotation.z = 0.95; // Waving hand
-  left.arm.rotation.z = 1.25; // Resting arm
-  left.arm.rotation.y = 0.5;
-
-  // Head & Face ---------------------------------------------------------
-  const headPivot = new THREE.Group();
-  headPivot.position.set(0, 0.2, 0);
-  root.add(headPivot);
-  const headContent = new THREE.Group();
-  headContent.position.set(0, 0.75, 0);
-  headPivot.add(headContent);
-
-  const headMesh = add(headContent, unit, whiteHead, [0, 0, 0], [1.1, 1.0, 1.02]);
-  const jawMesh = add(headContent, unit, whiteHead, [0, -0.42, 0.04], [0.95, 0.6, 0.9]);
-
-  // Deep dark sockets with warm glowing pupils
-  const eyes: Eye[] = [];
-  for (const side of [-1, 1]) {
-    const group = new THREE.Group();
-    group.position.set(side * 0.5, -0.06, 0.74);
-    group.rotation.y = side * 0.48;
-    add(group, unit, socketDark, [0, 0, 0], [0.52, 0.6, 0.26]);
-
-    const pupil = new THREE.Group();
-    add(pupil, unit, glowPupil, [0, 0, 0], [0.11, 0.11, 0.055]);
-    add(pupil, unit, glowCore, [-0.03, 0.035, 0.03], [0.035, 0.035, 0.02]);
-    add(pupil, unit, glowHalo, [0, 0, 0], [0.24, 0.24, 0.09]);
-    group.add(pupil);
-    headContent.add(group);
-    eyes.push({ group, pupil, rest: { x: 0, y: side < 0 ? -0.12 : 0.02 } });
-  }
-
-  // Nose point & smiling mouth line
-  add(headContent, unit, featureDark, [0, -0.3, 0.96], [0.05, 0.075, 0.04]);
-  add(headContent, geo(new THREE.TorusGeometry(0.15, 0.018, 8, 28, Math.PI)), featureDark, [0.05, -0.5, 0.885], [1, 1, 1], [0, 0, Math.PI]);
-
-  // Signature 3-line rosy pink blush hatch marks on each cheek
-  for (const side of [-1, 1]) {
-    for (const offset of [-0.08, 0, 0.08]) {
-      add(
-        headContent,
-        unit,
-        blushPink,
-        [side * 0.65 + offset * 0.9, -0.34, 0.77],
-        [0.022, 0.075, 0.022],
-        [0.1, side * 0.4, 0.25],
-      );
+      // Inside the socket, pixels are either dark cocoa OR inside the yellow pupil rest orb (where g > b + 15)
+      const distLeftPupil = Math.hypot((u - LEFT_PUPIL_REST.u) / 0.032, (v - LEFT_PUPIL_REST.v) / 0.028);
+      const distRightPupil = Math.hypot((u - RIGHT_PUPIL_REST.u) / 0.032, (v - RIGHT_PUPIL_REST.v) / 0.028);
+      const inPupilOrb = (distLeftPupil < 1.0 || distRightPupil < 1.0) && g > b + 15;
+      const darkness = 1 - smoothstep(120, 185, (r + g + b) / 3);
+      rawMask[y * w + x] = inPupilOrb ? 1 : darkness;
     }
   }
 
-  // Nightcap & Bow ------------------------------------------------------
-  const cap = new THREE.Group();
-  cap.position.set(0, 0.05, 0);
-  cap.rotation.set(-0.18, 0, 0.1);
-  headContent.add(cap);
+  // Smooth the socket mask by 1.5px for silky anti-aliased socket rims
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      const m =
+        (rawMask[idx] * 4 +
+          rawMask[idx - 1] +
+          rawMask[idx + 1] +
+          rawMask[idx - w] +
+          rawMask[idx + w]) /
+        8;
+      const byte = Math.round(clamp(m * 255, 0, 255));
+      const p = idx * 4;
+      maskData[p] = byte;
+      maskData[p + 1] = byte;
+      maskData[p + 2] = byte;
+      maskData[p + 3] = 255;
+    }
+  }
+  maskCtx.putImageData(maskImgData, 0, 0);
 
-  const capRadius = 1.12;
-  const capPolar = 1.15;
-  const capDome = add(cap, geo(new THREE.SphereGeometry(capRadius, 48, 32, 0, Math.PI * 2, 0, capPolar)), capCream);
-  const brimY = capRadius * Math.cos(capPolar);
-  const brimR = capRadius * Math.sin(capPolar);
-  add(cap, geo(new THREE.TorusGeometry(brimR, 0.11, 16, 72)), cuffCream, [0, brimY, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+  // 2. Seamlessly heal the static yellow pupils and their entire warm halo inside each dark cocoa
+  //    socket so no ghost glow remains when the live pupil moves across the socket.
+  const healSocket = (su: number, sv: number, pu: number, pv: number) => {
+    const sx = su * w;
+    const sy = sv * h;
+    const px = pu * w;
+    const py = pv * h;
+    const rx = w * 0.064;
+    const ry = h * 0.050;
 
-  // Gold stars printed across the cap
-  const capSpots: [number, number, number][] = [
-    [0.3, 0.6, 0.13], [0.5, 2.0, 0.12], [0.6, 3.6, 0.14], [0.8, 5.0, 0.13], [0.9, 1.0, 0.12],
-    [0.95, 2.8, 0.14], [0.45, 4.2, 0.11], [0.75, 0.2, 0.12], [1.0, 4.0, 0.12], [1.05, 5.6, 0.11], [0.62, 5.8, 0.1],
-  ];
-  for (const [theta, phi, size] of capSpots) {
-    const p = new THREE.Vector3(
-      Math.sin(theta) * Math.sin(phi) * (capRadius + 0.012),
-      Math.cos(theta) * (capRadius + 0.012),
-      Math.sin(theta) * Math.cos(phi) * (capRadius + 0.012),
-    );
-    const star = new THREE.Mesh(starGeo, goldStar);
-    star.scale.set(size, size, size * 0.6);
-    faceOutward(star, p, p.clone().normalize());
-    star.rotateZ(phi * 1.7);
-    cap.add(star);
+    const x0 = Math.max(0, Math.floor(sx - rx));
+    const x1 = Math.min(w - 1, Math.ceil(sx + rx));
+    const y0 = Math.max(0, Math.floor(sy - ry));
+    const y1 = Math.min(h - 1, Math.ceil(sy + ry));
+
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const m = rawMask[y * w + x];
+        if (m < 0.12) continue;
+
+        const normDist = Math.hypot((x - sx) / (rx * 0.85), (y - sy) / (ry * 0.85));
+        const rimFactor = clamp(normDist * normDist, 0, 1);
+
+        // Natural matte cocoa socket shading: deep cocoa in the cavity, slightly warmer near the socket rim
+        const targetR = 60 + rimFactor * 22;
+        const targetG = 35 + rimFactor * 15;
+        const targetB = 32 + rimFactor * 13;
+
+        const i = (y * w + x) * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        const distToPupil = Math.hypot(x - px, y - py);
+        const pupilZone = 1 - smoothstep(w * 0.036, w * 0.058, distToPupil);
+        const warmExcess = g > b + 10 ? clamp((r - targetR) / 14, 0, 1) : 0;
+        const blend = clamp(Math.max(pupilZone, warmExcess) * smoothstep(0.12, 0.70, m), 0, 1);
+
+        data[i] = Math.round(r + (targetR - r) * blend);
+        data[i + 1] = Math.round(g + (targetG - g) * blend);
+        data[i + 2] = Math.round(b + (targetB - b) * blend);
+      }
+    }
+  };
+
+  healSocket(LEFT_SOCKET_CENTER.u, LEFT_SOCKET_CENTER.v, LEFT_PUPIL_REST.u, LEFT_PUPIL_REST.v);
+  healSocket(RIGHT_SOCKET_CENTER.u, RIGHT_SOCKET_CENTER.v, RIGHT_PUPIL_REST.u, RIGHT_PUPIL_REST.v);
+
+  // 3. Outer border flood-fill with tightly fitted interior protection so 100% of the hat crown,
+  //    cloud puffs, bow, pom-pom, moon, and stars are preserved with zero waist halo.
+  const bgR = data[0];
+  const bgG = data[1];
+  const bgB = data[2];
+
+  const isProtectedInterior = (u: number, v: number): boolean => {
+    // Nightcap top dome & crown (reaches right up to v=0.138)
+    if (Math.hypot((u - 0.468) / 0.212, (v - 0.295) / 0.158) < 1.0) return true;
+    // Lower face & chubby skull cheeks
+    if (Math.hypot((u - 0.492) / 0.192, (v - 0.388) / 0.105) < 1.0) return true;
+    // Narrower torso & seated legs (tightly inside waist u=0.39..0.61)
+    if (Math.hypot((u - 0.50) / 0.112, (v - 0.575) / 0.125) < 1.0) return true;
+    // Main cloud cushion body
+    if (Math.hypot((u - 0.50) / 0.305, (v - 0.752) / 0.112) < 1.0) return true;
+    // Upper-left & upper-right cloud puffs behind Pip's hips
+    if (Math.hypot((u - 0.335) / 0.076, (v - 0.665) / 0.052) < 1.0) return true;
+    if (Math.hypot((u - 0.688) / 0.082, (v - 0.665) / 0.056) < 1.0) return true;
+    return false;
+  };
+
+  const visited = new Uint8Array(w * h);
+  const isBg = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let qHead = 0;
+  let qTail = 0;
+
+  const enqueue = (x: number, y: number) => {
+    const idx = y * w + x;
+    if (visited[idx]) return;
+    visited[idx] = 1;
+    queue[qTail++] = idx;
+  };
+
+  for (let x = 0; x < w; x++) {
+    enqueue(x, 0);
+    enqueue(x, h - 1);
+  }
+  for (let y = 0; y < h; y++) {
+    enqueue(0, y);
+    enqueue(w - 1, y);
   }
 
-  // Drooping tail with a fuzzy pom-pom
-  const tailCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 1.0, -0.05),
-    new THREE.Vector3(-0.55, 1.2, -0.2),
-    new THREE.Vector3(-1.05, 1.05, -0.25),
-    new THREE.Vector3(-1.35, 0.7, -0.2),
-    new THREE.Vector3(-1.45, 0.35, -0.1),
-  ]);
-  const tailSegments = 12;
-  for (let i = 0; i <= tailSegments; i++) {
-    const t = i / tailSegments;
-    const point = tailCurve.getPoint(t);
-    const radius = 0.36 + (0.17 - 0.36) * t;
-    add(cap, unit, capCream, [point.x, point.y, point.z], [radius, radius, radius]);
-  }
-  const pomGeo = geo(new THREE.IcosahedronGeometry(0.26, 3));
-  add(cap, pomGeo, pomBeige, [-1.5, 0.18, -0.05]);
+  while (qHead < qTail) {
+    const idx = queue[qHead++];
+    const x = idx % w;
+    const y = (idx - x) / w;
+    const u = x / w;
+    const v = y / h;
 
-  // Cute 3D Pink Bow attached to the side cuff
-  {
-    const bow = new THREE.Group();
-    const bowPoint = new THREE.Vector3(-0.89, brimY, 0.63);
-    faceOutward(bow, bowPoint, new THREE.Vector3(-0.82, 0.1, 0.58).normalize());
-    bow.rotateZ(0.4);
-    add(bow, unit, bowPink, [0, 0, 0], [0.1, 0.1, 0.08]);
-    add(bow, unit, bowPink, [0.24, 0, 0], [0.26, 0.15, 0.08], [0, 0, 0.4]);
-    add(bow, unit, bowPink, [-0.24, 0, 0], [0.26, 0.15, 0.08], [0, 0, -0.4]);
-    add(bow, unit, bowPink, [0.08, -0.17, 0], [0.07, 0.2, 0.05], [0, 0, 0.25]);
-    add(bow, unit, bowPink, [-0.08, -0.17, 0], [0.07, 0.2, 0.05], [0, 0, -0.25]);
-    cap.add(bow);
+    if (isProtectedInterior(u, v)) continue;
+
+    const p = idx * 4;
+    const dr = data[p] - bgR;
+    const dg = data[p + 1] - bgG;
+    const db = data[p + 2] - bgB;
+    const colorDist = Math.sqrt(dr * dr + dg * dg + db * db);
+
+    if (colorDist > 11.0) continue;
+
+    isBg[idx] = 1;
+
+    if (x > 0) enqueue(x - 1, y);
+    if (x < w - 1) enqueue(x + 1, y);
+    if (y > 0) enqueue(x, y - 1);
+    if (y < h - 1) enqueue(x, y + 1);
   }
 
-  // Floating Sleeping Moon & Celestial Stars ----------------------------
-  const floaters: PipRig['floaters'] = [];
+  // Smooth 2px alpha feathering along the outer contour
+  const alphaBuf = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    alphaBuf[i] = isBg[i] ? 0 : 1;
+  }
+  const smoothedAlpha = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      let count = 0;
+      for (let dy = -2; dy <= 2; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= h) continue;
+        for (let dx = -2; dx <= 2; dx++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= w) continue;
+          sum += alphaBuf[ny * w + nx];
+          count++;
+        }
+      }
+      const a = sum / count;
+      smoothedAlpha[y * w + x] = a;
+      data[(y * w + x) * 4 + 3] = Math.round(clamp(a * 255, 0, 255));
+    }
+  }
 
-  const moonShape = new THREE.Shape();
-  moonShape.absarc(0, 0, 0.5, Math.PI / 2, -Math.PI / 2, true);
-  moonShape.absarc(-0.22, 0, 0.5463, -1.1555, 1.1555, false);
-  const moonGeo = new THREE.ExtrudeGeometry(moonShape, {
-    depth: 0.14,
-    bevelEnabled: true,
-    bevelSize: 0.04,
-    bevelThickness: 0.04,
-    bevelSegments: 4,
-    curveSegments: 32,
-  });
-  moonGeo.translate(0, 0, -0.07);
-  geo(moonGeo);
-  const moon = new THREE.Group();
-  moon.position.set(2.0, 2.55, -0.4);
-  moon.scale.set(1.15, 1.15, 1.15);
-  moon.rotation.z = 0.25;
-  add(moon, moonGeo, moonGold);
-  // Sleepy eye on moon
-  add(moon, geo(new THREE.TorusGeometry(0.07, 0.012, 8, 20, Math.PI)), featureDark, [0.4, 0.07, 0.115], [1, 1, 1], [0, 0, Math.PI]);
-  // Moon blush
-  add(moon, unit, blushPink, [0.4, -0.07, 0.1], [0.06, 0.045, 0.02]);
-  root.add(moon);
-  floaters.push({ object: moon, baseY: moon.position.y, phase: 0.4, spin: 0.15 });
+  ctx.putImageData(imgData, 0, 0);
 
-  const floatingStars: [number, number, number, number, 'gold' | 'lav' | 'pink'][] = [
-    [2.25, 0.85, 0.2, 0.26, 'gold'],
-    [2.1, 1.85, -0.3, 0.18, 'lav'],
-    [-2.3, -0.35, 0.3, 0.27, 'pink'],
-    [-2.15, -1.2, 0.1, 0.22, 'lav'],
-    [2.3, -0.55, 0.1, 0.2, 'gold'],
-    [-1.7, 0.55, -0.2, 0.1, 'lav'],
-    [1.85, -0.15, 0.2, 0.08, 'pink'],
-    [-2.0, 0.05, 0.2, 0.07, 'gold'],
-    [1.6, 2.15, 0.0, 0.12, 'pink'],
-  ];
-  floatingStars.forEach(([x, y, z, size, tint], i) => {
-    const matTint = tint === 'gold' ? goldStar : tint === 'pink' ? heartPink : lavenderStar;
-    const star = new THREE.Mesh(starGeo, matTint);
-    star.position.set(x, y, z);
-    star.scale.set(size, size, size * 0.8);
-    root.add(star);
-    floaters.push({ object: star, baseY: y, phase: i * 1.3, spin: 0.4 + (i % 3) * 0.15 });
-  });
+  const baseTexture = new THREE.CanvasTexture(canvas);
+  baseTexture.colorSpace = THREE.SRGBColorSpace;
+  baseTexture.minFilter = THREE.LinearMipmapLinearFilter;
+  baseTexture.magFilter = THREE.LinearFilter;
+  baseTexture.generateMipmaps = true;
+
+  const socketMaskTexture = new THREE.CanvasTexture(maskCanvas);
+  socketMaskTexture.minFilter = THREE.LinearFilter;
+  socketMaskTexture.magFilter = THREE.LinearFilter;
 
   return {
-    root,
-    body,
-    cloud,
-    headPivot,
-    headContent,
-    eyes,
-    rightArm: right.arm,
-    rightHand: right.hand,
-    leftArm: left.arm,
-    hitTargets: [headMesh, jawMesh, capDome, torsoMesh, right.arm, left.arm, cloud],
-    floaters,
-    dispose: () => {
-      geometries.forEach((g) => g.dispose());
-      materials.forEach((m) => m.dispose());
-    },
+    baseTexture,
+    socketMaskTexture,
+    alphaGrid: smoothedAlpha,
+    gridW: w,
+    gridH: h,
   };
 }
 
 /* ------------------------------------------------------------------ */
-/* Scene Component                                                     */
+/* 3D Relief Depth & Smooth Skeletal Weights                           */
+/* ------------------------------------------------------------------ */
+
+function uvToWorld(u: number, v: number): [number, number] {
+  return [(u - 0.5) * MESH_W, (0.5 - v) * MESH_H];
+}
+
+function computeReliefZ(u: number, v: number): number {
+  let z = 0;
+  // Head & nightcap 3D spherical dome
+  z += 0.56 * gaussian2D(u, v, 0.48, 0.34, 0.24, 0.20);
+  // Chubby lower cheeks
+  z += 0.15 * gaussian2D(u, v, 0.39, 0.43, 0.09, 0.07);
+  z += 0.15 * gaussian2D(u, v, 0.63, 0.39, 0.09, 0.07);
+  // Pink bow & pom-pom relief
+  z += 0.16 * gaussian2D(u, v, 0.35, 0.28, 0.08, 0.06);
+  z += 0.24 * gaussian2D(u, v, 0.21, 0.37, 0.065, 0.06);
+  // Torso, tummy & seated knees
+  z += 0.42 * gaussian2D(u, v, 0.50, 0.58, 0.17, 0.15);
+  z += 0.22 * gaussian2D(u, v, 0.41, 0.67, 0.08, 0.065);
+  z += 0.22 * gaussian2D(u, v, 0.57, 0.68, 0.08, 0.065);
+  // Waving right arm
+  z += 0.28 * gaussian2D(u, v, 0.68, 0.49, 0.10, 0.08);
+  // Fluffy cloud cushion puffs
+  z += 0.48 * gaussian2D(u, v, 0.50, 0.76, 0.33, 0.13);
+  z += 0.16 * gaussian2D(u, v, 0.36, 0.77, 0.12, 0.07);
+  z += 0.18 * gaussian2D(u, v, 0.55, 0.78, 0.13, 0.07);
+  // Floating moon 3D depth separation
+  if ((u > 0.695 && v < 0.265) || (u > 0.655 && v < 0.205)) {
+    z += 0.22;
+  }
+  return z;
+}
+
+function computeHeadWeight(u: number, v: number): number {
+  // Exclude moon & upper-right small star without touching the right tip of the nightcap brim (u~0.68, v~0.26)
+  if (u > 0.695 && v < 0.265) return 0;
+  if (u > 0.655 && v < 0.205) return 0;
+  if (u > 0.74) return 0; // Right floating stars
+
+  // Smoothly exclude left floating stars (u < 0.295, v > 0.43) without touching Pip's left cheek (u > 0.32)
+  const leftStarMask = smoothstep(0.422, 0.445, v) * (1 - smoothstep(0.288, 0.316, u));
+
+  // Smoothly exclude the raised waving right hand
+  const handMask = gaussian2D(u, v, 0.71, 0.48, 0.075, 0.065);
+
+  const neckLineV = 0.478 - (u - 0.5) * 0.16;
+  const verticalWeight = 1 - smoothstep(neckLineV - 0.035, neckLineV + 0.035, v);
+  const horizontalMask = 1 - smoothstep(0.695, 0.745, u);
+
+  return clamp(verticalWeight * horizontalMask * (1 - handMask) * (1 - leftStarMask), 0, 1);
+}
+
+function computeWaveArmWeight(u: number, v: number): number {
+  if (u < 0.55 || v < 0.41 || v > 0.59) return 0;
+  return clamp(gaussian2D(u, v, 0.69, 0.49, 0.12, 0.085) * 1.35, 0, 1);
+}
+
+function computeFloaterWeight(u: number, v: number): { weight: number; phase: number } {
+  if ((u > 0.695 && v < 0.265) || (u > 0.655 && v < 0.205)) return { weight: 1, phase: 0.5 };
+  if (u > 0.74 && v >= 0.26 && v < 0.64) return { weight: 1, phase: 1.8 + v * 4 };
+  if (u < 0.298 && v > 0.425 && v < 0.66) return { weight: 1, phase: 3.1 + v * 4 };
+  return { weight: 0, phase: 0 };
+}
+
+/* ------------------------------------------------------------------ */
+/* Custom WebGL Shader for Photo-Exact Glowing Pupils inside Sockets   */
+/* ------------------------------------------------------------------ */
+
+const VERTEX_SHADER = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const FRAGMENT_SHADER = /* glsl */ `
+  uniform sampler2D uBaseMap;
+  uniform sampler2D uSocketMask;
+  uniform vec2 uLeftPupil;
+  uniform vec2 uRightPupil;
+  uniform float uPupilScale;
+  uniform float uBlink;
+
+  varying vec2 vUv;
+
+  // Renders the exact warm cream-yellow core + soft golden-amber radial glow from pip_avatar_cloud.jpg
+  vec3 computePupilLight(vec2 imgUv, vec2 pupilCenter, float scale) {
+    // Distance in original 421x512 pixel space
+    vec2 diffPx = (imgUv - pupilCenter) * vec2(421.0, 512.0);
+    float d = length(diffPx) / max(0.25, scale);
+
+    // 1. Soft warm golden-amber aura illuminating the surrounding dark cocoa socket
+    float halo = exp(-(d * d) / 115.0) * 0.72 + exp(-(d * d) / 36.0) * 0.45;
+    vec3 haloColor = vec3(0.58, 0.34, 0.10) * halo;
+
+    // 2. Crisp, anti-aliased warm cream-yellow glowing orb core (radius ~5.6px in 421x512 photo)
+    float coreMask = 1.0 - smoothstep(4.2, 6.8, d);
+    vec3 coreCenter = vec3(1.0, 0.955, 0.76);
+    vec3 coreEdge = vec3(0.97, 0.78, 0.42);
+    vec3 coreColor = mix(coreCenter, coreEdge, smoothstep(0.0, 5.8, d));
+
+    return mix(haloColor, coreColor, coreMask * 0.97);
+  }
+
+  void main() {
+    vec4 base = texture2D(uBaseMap, vUv);
+    if (base.a < 0.01) discard;
+
+    // Convert Three.js UV (bottom-left origin) to image UV (top-left origin 0..1)
+    vec2 imgUv = vec2(vUv.x, 1.0 - vUv.y);
+    float socketMask = texture2D(uSocketMask, vUv).r;
+
+    vec3 color = base.rgb;
+
+    if (socketMask > 0.005) {
+      vec3 leftGlow = computePupilLight(imgUv, uLeftPupil, uPupilScale);
+      vec3 rightGlow = computePupilLight(imgUv, uRightPupil, uPupilScale);
+      vec3 totalGlow = leftGlow + rightGlow;
+
+      // Screen-like warm additive blend inside the dark cocoa eye socket
+      float coreStrength = clamp(max(totalGlow.r, totalGlow.g), 0.0, 1.0);
+      vec3 litSocket = mix(color + totalGlow * 0.90, max(color, totalGlow), coreStrength * 0.78);
+
+      // Natural dark-cocoa eyelid blink sweep
+      vec3 blinkColor = vec3(0.235, 0.14, 0.125);
+      litSocket = mix(litSocket, blinkColor, clamp(uBlink, 0.0, 1.0));
+
+      color = mix(color, clamp(litSocket, 0.0, 1.0), socketMask);
+    }
+
+    gl_FragColor = vec4(color, base.a);
+    #include <colorspace_fragment>
+  }
+`;
+
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
 /* ------------------------------------------------------------------ */
 
 interface AnimationApi {
@@ -508,42 +466,39 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
     const container = containerRef.current;
     if (!container) return;
 
+    let cancelled = false;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+        powerPreference: 'high-performance',
+      });
     } catch {
       onErrorRef.current?.();
       return;
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const isHeadless =
+      typeof navigator !== 'undefined' &&
+      (navigator.webdriver || /HeadlessChrome/i.test(navigator.userAgent));
+
+    renderer.setPixelRatio(isHeadless ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
-    renderer.toneMapping = THREE.NeutralToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     const canvas = renderer.domElement;
     canvas.style.touchAction = 'pan-y';
     container.appendChild(canvas);
 
     const scene = new THREE.Scene();
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const environment = new RoomEnvironment();
-    const envTexture = pmrem.fromScene(environment, 0.04).texture;
-    scene.environment = envTexture;
-    scene.environmentIntensity = 0.85;
+    const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 0.82, 0.1, 100);
 
-    const keyLight = new THREE.DirectionalLight(0xfff1dc, 1.5);
-    keyLight.position.set(3, 5, 6);
-    scene.add(keyLight);
-    const rimLight = new THREE.DirectionalLight(0xc7b6ff, 0.9);
-    rimLight.position.set(-4, 2, -3);
-    scene.add(rimLight);
+    const root = new THREE.Group();
+    scene.add(root);
 
-    const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 0.8, 0.1, 100);
+    const disposables: { dispose: () => void }[] = [];
 
-    const rig = buildPip();
-    scene.add(rig.root);
-
-    // Animation & Pointer State -------------------------------------------
     const state = {
       time: 0,
       gazeTarget: { x: 0, y: 0 } as Gaze2D,
@@ -563,11 +518,11 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
       boopT: 99,
       widenT: 99,
       blinkT: 99,
-      nextBlinkAt: 2.5,
+      nextBlinkAt: 2.6,
     };
 
     const greet = () => {
-      if (state.waveT < 0.6) return;
+      if (state.waveT < 0.5) return;
       state.waveT = 0;
       state.hopT = 0;
       state.widenT = 0;
@@ -575,94 +530,15 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
     const boop = () => {
       state.boopT = 0;
       state.widenT = 0;
-      state.blinkT = 99;
+      state.blinkT = 0;
     };
     apiRef.current = { greet };
 
-    const applyPose = (dt: number) => {
-      const t = state.time;
-      const now = performance.now();
-
-      // Mouse/Pointer gaze tracking
-      let target = state.gazeTarget;
-      if (now - state.lastPointerAt > IDLE_AFTER_MS) {
-        target = { x: Math.sin(t * 0.55) * 0.5, y: Math.sin(t * 0.8 + 1) * 0.18 };
-      }
-      state.eyeGaze.x = damp(state.eyeGaze.x, target.x, 14, dt);
-      state.eyeGaze.y = damp(state.eyeGaze.y, target.y, 14, dt);
-      state.headGaze.x = damp(state.headGaze.x, target.x, 4.5, dt);
-      state.headGaze.y = damp(state.headGaze.y, target.y, 4.5, dt);
-      state.yaw = damp(state.yaw, state.yawTarget, 8, dt);
-      state.pitch = damp(state.pitch, state.pitchTarget, 8, dt);
-
-      // Timers
-      state.waveT += dt;
-      state.hopT += dt;
-      state.boopT += dt;
-      state.widenT += dt;
-      if (state.blinkT < 0.16) state.blinkT += dt;
-      else if (t >= state.nextBlinkAt) {
-        state.blinkT = 0;
-        state.nextBlinkAt = t + (Math.random() < 0.2 ? 0.25 : 2.5 + Math.random() * 3);
-      }
-
-      const wave = state.waveT < WAVE_SECONDS ? Math.sin((Math.PI * state.waveT) / WAVE_SECONDS) : 0;
-      const hop = state.hopT < HOP_SECONDS ? Math.sin((Math.PI * state.hopT) / HOP_SECONDS) * 0.32 : 0;
-      const widen = state.widenT < 0.55 ? Math.sin((Math.PI * state.widenT) / 0.55) : 0;
-      const blink = state.blinkT < 0.16 ? Math.sin((Math.PI * state.blinkT) / 0.16) : 0;
-      const boopAmp = Math.exp(-5 * state.boopT);
-      const squash = Math.sin(state.boopT * 18) * boopAmp * 0.12;
-
-      // Whole model float, hop, 3D rotation
-      rig.root.position.y = Math.sin(t * 1.1) * 0.09 + hop;
-      rig.root.rotation.y = state.yaw;
-      rig.root.rotation.x = state.pitch;
-      rig.cloud.position.y = -2.5 + Math.sin(t * 1.1 + 0.6) * 0.03;
-      rig.body.scale.y = 1 + Math.sin(t * 1.6) * 0.012 - hop * 0.05;
-
-      // Head tracks cursor
-      rig.headPivot.rotation.set(
-        state.headGaze.y * 0.3 + Math.sin(t * 0.9) * 0.015,
-        state.headGaze.x * 0.5,
-        -state.headGaze.x * 0.06 + Math.sin(t * 0.8) * 0.02,
-      );
-      rig.headContent.scale.set(1 + squash * 0.7, 1 - squash, 1 + squash * 0.7);
-
-      // Glowing pupils inside dark sockets track cursor smoothly
-      for (const eye of rig.eyes) {
-        const g = limitToUnitCircle({
-          x: state.eyeGaze.x * 0.9 + eye.rest.x,
-          y: state.eyeGaze.y * 0.9 + eye.rest.y,
-        });
-        const px = g.x * EYE_REACH_X;
-        const py = -g.y * EYE_REACH_Y;
-        const nx = px / 0.52;
-        const ny = py / 0.6;
-        const surfaceZ = 0.26 * Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny));
-        eye.pupil.position.set(px, py, surfaceZ - 0.02);
-        const pupilScale = 1 + 0.35 * widen;
-        eye.pupil.scale.set(pupilScale, pupilScale, pupilScale);
-        eye.group.scale.set(1 + 0.06 * widen, (1 + 0.08 * widen) * (1 - blink * 0.92), 1);
-      }
-
-      // Hand waving
-      rig.rightArm.rotation.z = 0.95 + Math.sin(t * 1.4) * 0.05 + Math.sin(t * 11) * 0.28 * wave;
-      rig.rightHand.rotation.z = Math.sin(t * 11 + 1) * 0.5 * wave + Math.sin(t * 1.4) * 0.05;
-      rig.leftArm.rotation.z = 1.25 + Math.sin(t * 1.6) * 0.015;
-
-      // Celestial stars & moon float
-      rig.floaters.forEach((f, i) => {
-        f.object.position.y = f.baseY + Math.sin(t * 1.2 + f.phase) * 0.07;
-        f.object.rotation.y = Math.sin(t * 0.7 + f.phase) * f.spin;
-        if (i > 0) f.object.rotation.z = Math.sin(t * 0.9 + f.phase) * 0.18;
-      });
-    };
-
-    // Rendering -----------------------------------------------------------
     let frameId = 0;
     let running = false;
     let last = 0;
     let firstFrameDrawn = false;
+    let updateDeformation: ((dt: number) => void) | null = null;
 
     const drawFrame = () => {
       renderer.render(scene, camera);
@@ -674,15 +550,19 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
 
     const tick = (now: number) => {
       frameId = requestAnimationFrame(tick);
-      const dt = Math.min(0.05, (now - last) / 1000);
+      const elapsedMs = now - last;
+      if (isHeadless && elapsedMs < 55) return;
+      const dt = Math.min(0.05, elapsedMs / 1000);
       last = now;
       state.time += dt;
-      applyPose(dt);
-      drawFrame();
+      if (updateDeformation) {
+        updateDeformation(dt);
+        drawFrame();
+      }
     };
 
     const start = () => {
-      if (running || !motionAllowed) return;
+      if (running || !motionAllowed || !updateDeformation) return;
       running = true;
       last = performance.now();
       frameId = requestAnimationFrame(tick);
@@ -698,16 +578,16 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       const distance = fitCameraDistance(CONTENT_WIDTH, CAMERA_FOV, camera.aspect, MIN_CAMERA_DISTANCE);
-      camera.position.set(0, -0.15, distance);
-      camera.lookAt(0, -0.15, 0);
+      camera.position.set(0, 0, distance);
+      camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
-      if (!motionAllowed) drawFrame();
+      if (updateDeformation && !motionAllowed) {
+        updateDeformation(0);
+        drawFrame();
+      }
     };
 
     resize();
-    applyPose(0);
-    drawFrame();
-
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container);
 
@@ -719,18 +599,252 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
     });
     intersection.observe(container);
     document.addEventListener('visibilitychange', syncRunning);
-    syncRunning();
 
-    // Input handlers ------------------------------------------------------
-    const raycaster = new THREE.Raycaster();
-    const pointerNdc = new THREE.Vector2();
+    // Load portrait & initialize 3D relief mesh + custom eye shader
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (cancelled) return;
 
+      let processed: ProcessedPortrait;
+      try {
+        processed = processPortraitImage(img);
+      } catch {
+        onErrorRef.current?.();
+        return;
+      }
+      disposables.push(processed.baseTexture, processed.socketMaskTexture);
+
+      const geo = new THREE.PlaneGeometry(MESH_W, MESH_H, GRID_X, GRID_Y);
+      disposables.push(geo);
+
+      const posAttr = geo.attributes.position as THREE.BufferAttribute;
+      const uvAttr = geo.attributes.uv as THREE.BufferAttribute;
+      const vCount = posAttr.count;
+
+      const baseX = new Float32Array(vCount);
+      const baseY = new Float32Array(vCount);
+      const baseZ = new Float32Array(vCount);
+      const headW = new Float32Array(vCount);
+      const armW = new Float32Array(vCount);
+      const floatW = new Float32Array(vCount);
+      const floatPhase = new Float32Array(vCount);
+      const vAlpha = new Float32Array(vCount);
+
+      for (let i = 0; i < vCount; i++) {
+        const u = uvAttr.getX(i);
+        const v = 1 - uvAttr.getY(i);
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        const z = computeReliefZ(u, v);
+
+        baseX[i] = x;
+        baseY[i] = y;
+        baseZ[i] = z;
+        posAttr.setXYZ(i, x, y, z);
+
+        headW[i] = computeHeadWeight(u, v);
+        armW[i] = computeWaveArmWeight(u, v);
+        const fl = computeFloaterWeight(u, v);
+        floatW[i] = fl.weight;
+        floatPhase[i] = fl.phase;
+
+        const px = clamp(Math.round(u * (processed.gridW - 1)), 0, processed.gridW - 1);
+        const py = clamp(Math.round(v * (processed.gridH - 1)), 0, processed.gridH - 1);
+        vAlpha[i] = processed.alphaGrid[py * processed.gridW + px];
+      }
+
+      // Cull transparent background triangles
+      const oldIndex = geo.getIndex();
+      if (oldIndex) {
+        const oldArr = oldIndex.array;
+        const keptIndices: number[] = [];
+        for (let i = 0; i < oldArr.length; i += 3) {
+          const a = oldArr[i];
+          const b = oldArr[i + 1];
+          const c = oldArr[i + 2];
+          if (vAlpha[a] > 0.01 || vAlpha[b] > 0.01 || vAlpha[c] > 0.01) {
+            keptIndices.push(a, b, c);
+          }
+        }
+        geo.setIndex(keptIndices);
+      }
+
+      const uniforms = {
+        uBaseMap: { value: processed.baseTexture },
+        uSocketMask: { value: processed.socketMaskTexture },
+        uLeftPupil: { value: new THREE.Vector2(LEFT_PUPIL_REST.u, LEFT_PUPIL_REST.v) },
+        uRightPupil: { value: new THREE.Vector2(RIGHT_PUPIL_REST.u, RIGHT_PUPIL_REST.v) },
+        uPupilScale: { value: 1.0 },
+        uBlink: { value: 0.0 },
+      };
+
+      const shaderMat = new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: VERTEX_SHADER,
+        fragmentShader: FRAGMENT_SHADER,
+        transparent: true,
+      });
+      disposables.push(shaderMat);
+
+      const reliefMesh = new THREE.Mesh(geo, shaderMat);
+      root.add(reliefMesh);
+
+      const [neckX, neckY] = uvToWorld(0.49, 0.48);
+      const neckZ = computeReliefZ(0.49, 0.48);
+      const [shoulderX, shoulderY] = uvToWorld(0.58, 0.52);
+
+      const headEuler = new THREE.Euler();
+      const headQuat = new THREE.Quaternion();
+      const vTemp = new THREE.Vector3();
+
+      updateDeformation = (dt: number) => {
+        const t = state.time;
+        const now = performance.now();
+
+        let target = state.gazeTarget;
+        if (now - state.lastPointerAt > IDLE_AFTER_MS) {
+          target = {
+            x: Math.sin(t * 0.55) * 0.45,
+            y: Math.sin(t * 0.8 + 1) * 0.18,
+          };
+        }
+
+        state.eyeGaze.x = damp(state.eyeGaze.x, target.x, 16, dt);
+        state.eyeGaze.y = damp(state.eyeGaze.y, target.y, 16, dt);
+        state.headGaze.x = damp(state.headGaze.x, target.x, 5.5, dt);
+        state.headGaze.y = damp(state.headGaze.y, target.y, 5.5, dt);
+        state.yaw = damp(state.yaw, state.yawTarget, 8, dt);
+        state.pitch = damp(state.pitch, state.pitchTarget, 8, dt);
+
+        state.waveT += dt;
+        state.hopT += dt;
+        state.boopT += dt;
+        state.widenT += dt;
+        if (state.blinkT < 0.15) state.blinkT += dt;
+        else if (t >= state.nextBlinkAt) {
+          state.blinkT = 0;
+          state.nextBlinkAt = t + (Math.random() < 0.2 ? 0.26 : 2.6 + Math.random() * 3.0);
+        }
+
+        const wave = state.waveT < WAVE_SECONDS ? Math.sin((Math.PI * state.waveT) / WAVE_SECONDS) : 0;
+        const hop = state.hopT < HOP_SECONDS ? Math.sin((Math.PI * state.hopT) / HOP_SECONDS) * 0.18 : 0;
+        const widen = state.widenT < 0.55 ? Math.sin((Math.PI * state.widenT) / 0.55) : 0;
+        const blink = state.blinkT < 0.15 ? Math.sin((Math.PI * state.blinkT) / 0.15) : 0;
+        const boopAmp = Math.exp(-5.5 * state.boopT);
+        const squash = Math.sin(state.boopT * 18) * boopAmp * 0.085;
+
+        // Whole-character float, hop, breathing, and separate idle vs user-drag 3D rotation
+        const breathY = Math.sin(t * 1.15) * 0.035;
+        const idleYaw = state.dragging ? 0 : Math.sin(t * 0.65) * 0.055;
+        const breathScale = 1 + Math.sin(t * 1.4) * 0.006;
+        root.position.y = breathY + hop;
+        root.scale.set(breathScale, 2 - breathScale, 1);
+        root.rotation.y = state.yaw + idleYaw + state.headGaze.x * 0.08;
+        root.rotation.x = state.pitch + state.headGaze.y * 0.05;
+
+        // 3D Head rotation around neck pivot
+        const headPitch = state.headGaze.y * 0.24 + Math.sin(t * 0.9) * 0.012;
+        const headYaw = state.headGaze.x * 0.36;
+        const headRoll = -state.headGaze.x * 0.09 + Math.sin(t * 0.8) * 0.014;
+        headEuler.set(headPitch, headYaw, headRoll, 'YXZ');
+        headQuat.setFromEuler(headEuler);
+
+        // Waving right arm angle
+        const waveAngle = Math.sin(t * 1.4) * 0.025 + Math.sin(t * 12) * 0.20 * wave;
+        const cosWave = Math.cos(waveAngle);
+        const sinWave = Math.sin(waveAngle);
+
+        for (let i = 0; i < vCount; i++) {
+          let x = baseX[i];
+          let y = baseY[i];
+          let z = baseZ[i];
+
+          const hw = headW[i];
+          if (hw > 0.0001) {
+            vTemp.set(x - neckX, y - neckY, z - neckZ);
+            vTemp.x *= 1 + squash * 0.65 * hw;
+            vTemp.y *= 1 - squash * 0.85 * hw;
+            vTemp.applyQuaternion(headQuat);
+            x = x + (neckX + vTemp.x - x) * hw;
+            y = y + (neckY + vTemp.y - y) * hw;
+            z = z + (neckZ + vTemp.z - z) * hw;
+          }
+
+          const aw = armW[i];
+          if (aw > 0.0001) {
+            const dx = x - shoulderX;
+            const dy = y - shoulderY;
+            const rx = dx * cosWave - dy * sinWave;
+            const ry = dx * sinWave + dy * cosWave;
+            x = x + (shoulderX + rx - x) * aw;
+            y = y + (shoulderY + ry - y) * aw;
+          }
+
+          const fw = floatW[i];
+          if (fw > 0.0001) {
+            const ph = floatPhase[i];
+            y += Math.sin(t * 1.3 + ph) * 0.04 * fw;
+            z += Math.cos(t * 1.1 + ph) * 0.05 * fw;
+          }
+
+          posAttr.setXYZ(i, x, y, z);
+        }
+        posAttr.needsUpdate = true;
+
+        // Update shader pupil UV positions inside the dark cocoa sockets
+        const g = limitToUnitCircle(state.eyeGaze);
+        // Reach in UV space so the pupils can travel across the entire dark cocoa socket
+        const reachU = 0.026;
+        const reachV = 0.020;
+
+        const clampToSocket = (u: number, v: number, su: number, sv: number): [number, number] => {
+          const maxRu = 0.033;
+          const maxRv = 0.024;
+          const du = (u - su) / maxRu;
+          const dv = (v - sv) / maxRv;
+          const len = Math.hypot(du, dv);
+          if (len <= 1) return [u, v];
+          return [su + (du / len) * maxRu, sv + (dv / len) * maxRv];
+        };
+
+        const [lu, lv] = clampToSocket(
+          LEFT_PUPIL_REST.u + g.x * reachU,
+          LEFT_PUPIL_REST.v + g.y * reachV,
+          LEFT_SOCKET_CENTER.u,
+          LEFT_SOCKET_CENTER.v,
+        );
+        const [ru, rv] = clampToSocket(
+          RIGHT_PUPIL_REST.u + g.x * reachU,
+          RIGHT_PUPIL_REST.v + g.y * reachV,
+          RIGHT_SOCKET_CENTER.u,
+          RIGHT_SOCKET_CENTER.v,
+        );
+
+        const ambientGlowPulse = 1 + Math.sin(t * 2.2) * 0.035;
+        uniforms.uLeftPupil.value.set(lu, lv);
+        uniforms.uRightPupil.value.set(ru, rv);
+        uniforms.uPupilScale.value = ambientGlowPulse + 0.24 * widen;
+        uniforms.uBlink.value = blink * 0.95;
+      };
+
+      updateDeformation(0);
+      drawFrame();
+      syncRunning();
+    };
+
+    img.onerror = () => {
+      if (!cancelled) onErrorRef.current?.();
+    };
+    img.src = '/assets/pip_avatar_cloud.png';
+
+    // Pointer & Click Interactions ----------------------------------------
     const onWindowPointerMove = (event: PointerEvent) => {
       state.gazeTarget = pointerToGaze(event.clientX, event.clientY, canvas.getBoundingClientRect(), 0.9);
       state.lastPointerAt = performance.now();
 
       if (state.dragging) {
-        state.yawTarget = clamp(state.dragStartYaw + (event.clientX - state.dragStartX) * 0.012, -1.1, 1.1);
+        state.yawTarget = clamp(state.dragStartYaw + (event.clientX - state.dragStartX) * 0.008, -0.55, 0.55);
         state.pitchTarget = clamp((event.clientY - state.dragStartY) * 0.004, -0.25, 0.25);
       }
     };
@@ -745,19 +859,11 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
       } catch {}
 
       const bounds = canvas.getBoundingClientRect();
-      pointerNdc.set(
-        ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 2 - 1,
-        -(((event.clientY - bounds.top) / Math.max(1, bounds.height)) * 2 - 1),
-      );
-      raycaster.setFromCamera(pointerNdc, camera);
-      const hits = raycaster.intersectObjects(rig.hitTargets, false);
-      if (hits.length > 0) {
-        const hitObject = hits[0].object;
-        if (hitObject === rig.hitTargets[0] || hitObject === rig.hitTargets[1] || hitObject === rig.hitTargets[2]) {
-          boop();
-        } else {
-          greet();
-        }
+      const u = (event.clientX - bounds.left) / Math.max(1, bounds.width);
+      const v = (event.clientY - bounds.top) / Math.max(1, bounds.height);
+
+      if (computeHeadWeight(u, v) > 0.35) {
+        boop();
       } else {
         greet();
       }
@@ -791,6 +897,7 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
     canvas.addEventListener('webglcontextlost', onContextLost);
 
     return () => {
+      cancelled = true;
       apiRef.current = null;
       stop();
       resizeObserver.disconnect();
@@ -804,10 +911,7 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
       canvas.removeEventListener('webglcontextlost', onContextLost);
       document.documentElement.removeEventListener('mouseleave', onDocumentLeave);
 
-      rig.dispose();
-      envTexture.dispose();
-      environment.dispose();
-      pmrem.dispose();
+      disposables.forEach((d) => d.dispose());
       renderer.dispose();
       renderer.forceContextLoss();
       if (canvas.parentNode === container) container.removeChild(canvas);

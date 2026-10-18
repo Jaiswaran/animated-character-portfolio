@@ -36,6 +36,11 @@ html.dark body,
   color: #fff8f1;
 }
 
+section[id],
+article[id] {
+  scroll-margin-top: 5.5rem;
+}
+
 /* Vintage dashed stitching line */
 .border-stitch {
   border: 2px dashed #a34063;

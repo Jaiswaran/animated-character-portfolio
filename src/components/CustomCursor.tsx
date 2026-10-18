@@ -199,7 +199,7 @@ export const CustomCursor: React.FC<CustomCursorProps> = ({ enabled }) => {
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[99999] overflow-hidden select-none"
+      className="pointer-events-none fixed inset-0 z-[200000] overflow-hidden select-none"
       aria-hidden="true"
     >
       {/* Click Sparkles Burst */}

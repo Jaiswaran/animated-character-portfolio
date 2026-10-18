@@ -6,7 +6,9 @@
  * it never requires audio, canvas confetti, or another animation dependency.
  */
 import React, { useEffect, useRef } from 'react';
-import { X, Heart, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Heart, Sparkles, Star, Moon } from 'lucide-react';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface EasterEggModalProps {
   isOpen: boolean;
@@ -14,27 +16,43 @@ interface EasterEggModalProps {
 }
 
 export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose }) => {
+  const { play } = useSoundEffects();
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  const playRef = useRef(play);
+  playRef.current = play;
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const previouslyFocused = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    playRef.current('easter-egg-open');
+
+    const activeEl = document.activeElement;
+    const previouslyFocused =
+      activeEl instanceof HTMLElement && activeEl !== document.body && activeEl !== document.documentElement
+        ? activeEl
+        : document.querySelector<HTMLElement>('.pip-secret-star');
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const focusFrame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus({ preventScroll: true });
+    });
 
-    const close = () => onCloseRef.current();
+    const handleClose = () => {
+      playRef.current('easter-egg-close');
+      onCloseRef.current();
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        close();
+        event.stopPropagation();
+        handleClose();
         return;
       }
 
@@ -55,22 +73,36 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    const handlePopState = () => {
+      handleClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('popstate', handlePopState);
     return () => {
       window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('popstate', handlePopState);
       document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus();
+      const targetToFocus =
+        previouslyFocused && document.contains(previouslyFocused)
+          ? previouslyFocused
+          : document.querySelector<HTMLElement>('.pip-secret-star');
+      targetToFocus?.focus({ preventScroll: true });
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
-  const close = () => onCloseRef.current();
+  const close = () => {
+    play('easter-egg-close');
+    onCloseRef.current();
+  };
 
-  return (
+  return createPortal(
     <div
       className="pip-secret-backdrop"
+      data-testid="secret-star-backdrop"
       onClick={(event) => {
         if (event.target === event.currentTarget) close();
       }}
@@ -97,8 +129,12 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
         <div className="pip-secret-sky" aria-hidden="true">
           <span className="pip-secret-orbit orbit-one" />
           <span className="pip-secret-orbit orbit-two" />
-          <span className="pip-secret-waking-star">✦</span>
-          <span className="pip-secret-sleeper">☾</span>
+          <span className="pip-secret-waking-star">
+            <Star className="fill-current" size={32} />
+          </span>
+          <span className="pip-secret-sleeper">
+            <Moon className="fill-current" size={18} />
+          </span>
           <Sparkles className="pip-secret-sparkle sparkle-one" size={20} />
           <Sparkles className="pip-secret-sparkle sparkle-two" size={16} />
         </div>
@@ -121,6 +157,7 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
         </button>
         <p className="pip-secret-replay">The star will be waiting if you want to visit again.</p>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 };

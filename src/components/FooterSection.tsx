@@ -34,6 +34,19 @@ export const FooterSection: React.FC = () => {
             <div className="inline-block px-3 py-1 rounded-full bg-soft-blush/20 border border-soft-blush/40 text-soft-blush font-bubbly text-[11px]">
               ★ Best viewed tucked under a warm blanket ★
             </div>
+            <a
+              href="#hero"
+              onClick={(e) => {
+                e.preventDefault();
+                const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-star-gold/30 text-star-gold font-bubbly font-bold text-[11px] transition-all cursor-pointer"
+              aria-label="Back to top of observatory"
+            >
+              <span>Back to top</span>
+              <span aria-hidden="true">↑</span>
+            </a>
           </div>
         </div>
 

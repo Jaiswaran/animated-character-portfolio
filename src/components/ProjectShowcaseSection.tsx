@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -119,6 +120,8 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
 
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const pushedHistoryRef = useRef(false);
+  const lastTriggerRef = useRef<HTMLElement | null>(null);
 
   const glow = GLOW_OPTIONS.find((item) => item.id === activeGlow) || GLOW_OPTIONS[0];
   const isLullabyAudible = lullaby.isPlaying && !lullaby.isMuted;
@@ -126,21 +129,35 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   // Open modal in full screen & push history state for browser Back button support
   const openProject = (project: ProjectCase) => {
     play('button-click');
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      lastTriggerRef.current = document.activeElement;
+    } else {
+      lastTriggerRef.current = document.querySelector<HTMLElement>(`.ultimate-project-${project.id}`);
+    }
     setIsFullScreen(true);
     setSelectedProject(project);
     try {
       if (window.location.hash !== `#invention-${project.id}`) {
         window.history.pushState({ modalOpen: true, projectId: project.id }, '', `#invention-${project.id}`);
+        pushedHistoryRef.current = true;
       }
     } catch {}
   };
 
   const closeProject = () => {
     play('button-click');
+    setSelectedProject(null);
     if (window.location.hash.startsWith('#invention-')) {
-      window.history.back();
-    } else {
-      setSelectedProject(null);
+      if (pushedHistoryRef.current) {
+        pushedHistoryRef.current = false;
+        try {
+          window.history.back();
+        } catch {}
+      } else {
+        try {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        } catch {}
+      }
     }
   };
 
@@ -175,9 +192,11 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
           setSelectedProject(found);
           setIsFullScreen(true);
         } else {
+          pushedHistoryRef.current = false;
           setSelectedProject(null);
         }
       } else {
+        pushedHistoryRef.current = false;
         setSelectedProject(null);
       }
     };
@@ -196,12 +215,16 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   useEffect(() => {
     if (!selectedProject) return;
 
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousFocus =
+      lastTriggerRef.current ||
+      (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     document.body.classList.add('modal-open');
 
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const focusFrame = window.requestAnimationFrame(() =>
+      closeButtonRef.current?.focus({ preventScroll: true })
+    );
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -227,13 +250,15 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = previousOverflow;
       document.body.classList.remove('modal-open');
-      previousFocus?.focus();
+      if (previousFocus && document.contains(previousFocus)) {
+        previousFocus.focus({ preventScroll: true });
+      }
     };
   }, [selectedProject]);
 
@@ -483,20 +508,26 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       </div>
 
       {/* FULL-SCREEN DEDICATED INVENTION MODAL */}
-      {selectedProject && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeProject();
-          }}
-        >
-          <section
-            ref={modalRef}
-            className={`relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
-              isFullScreen
-                ? 'fixed inset-0 w-screen h-screen rounded-none z-[101] p-4 sm:p-8 overflow-y-auto'
-                : 'w-full max-w-5xl max-h-[92vh] rounded-3xl z-[101] p-6 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
-            }`}
+      {selectedProject &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100020] flex items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
+            data-testid="invention-modal-backdrop"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeProject();
+            }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeProject();
+            }}
+          >
+            <section
+              ref={modalRef}
+              className={`relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
+                isFullScreen
+                  ? 'fixed inset-0 w-screen h-screen rounded-none z-[100021] p-4 sm:p-8 overflow-y-auto'
+                  : 'w-full max-w-5xl max-h-[92vh] rounded-3xl z-[100021] p-6 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
+              }`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="ultimate-modal-title"
@@ -775,7 +806,8 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
               </div>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

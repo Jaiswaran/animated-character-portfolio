@@ -107,6 +107,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
     <div
       ref={stageRef}
       className={`pip-realistic-stage${motionAllowed ? ' is-motion-enabled' : ' is-motion-reduced'}${isWaving ? ' is-greeting' : ''}${show3D ? ' is-3d-ready' : ''}`}
+      data-stage-ready={show3D ? 'true' : 'false'}
       style={{
         '--pip-tilt-x': motionAllowed ? `${gaze.tiltX}deg` : '0deg',
         '--pip-tilt-y': motionAllowed ? `${gaze.tiltY}deg` : '0deg',
