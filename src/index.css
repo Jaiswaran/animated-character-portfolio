@@ -1387,3 +1387,10 @@ body { overflow-x: clip; }
 #guestbook [class*="text-warm-brown/60"] { color: #6d5349; }
 .dark #guestbook [class*="text-warm-brown/70"],
 .dark #guestbook [class*="text-warm-brown/60"] { color: #e2d1d8; }
+
+
+/* Pip's dossier score labels use a cream inset rather than .project-card; give them the same contrast-safe palette. */
+#about [class*="bg-cream/50"] [class*="text-[10px]"] { color: #6d5349; }
+.dark #about [class*="bg-cream/50"] [class*="text-[10px]"] { color: #e2d1d8; }
+#about [class*="bg-cream/50"] [class*="text-amber-500"] { color: #8a4f00; }
+.dark #about [class*="bg-cream/50"] [class*="text-amber-500"] { color: #ffd98f; }
