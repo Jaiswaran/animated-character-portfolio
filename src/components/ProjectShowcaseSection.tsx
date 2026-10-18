@@ -123,29 +123,25 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   const glow = GLOW_OPTIONS.find((item) => item.id === activeGlow) || GLOW_OPTIONS[0];
   const isLullabyAudible = lullaby.isPlaying && !lullaby.isMuted;
 
-  // Keep the browser Back button and mobile back gesture in sync with the open invention.
+  // Open modal in full screen & push history state for browser Back button support
   const openProject = (project: ProjectCase) => {
     play('button-click');
     setIsFullScreen(true);
-    if (typeof window !== 'undefined') {
-      const current = window.history.state;
-      const safeState = current && typeof current === 'object' ? current : {};
-      window.history.pushState(
-        { ...safeState, pipInventionModal: project.id },
-        '',
-        window.location.href,
-      );
-    }
     setSelectedProject(project);
+    try {
+      if (window.location.hash !== `#invention-${project.id}`) {
+        window.history.pushState({ modalOpen: true, projectId: project.id }, '', `#invention-${project.id}`);
+      }
+    } catch {}
   };
 
   const closeProject = () => {
     play('button-click');
-    if (typeof window !== 'undefined' && window.history.state?.pipInventionModal) {
+    if (window.location.hash.startsWith('#invention-')) {
       window.history.back();
-      return;
+    } else {
+      setSelectedProject(null);
     }
-    setSelectedProject(null);
   };
 
   const toggleFullScreen = () => {
@@ -168,26 +164,44 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     onSelectGlow(mode);
   };
 
-  // Keyboard navigation and backdrop lock
+  // Sync hash changes / browser back/forward buttons with active modal
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#invention-')) {
+        const id = hash.replace('#invention-', '');
+        const found = PROJECTS.find((p) => p.id === id);
+        if (found) {
+          setSelectedProject(found);
+          setIsFullScreen(true);
+        } else {
+          setSelectedProject(null);
+        }
+      } else {
+        setSelectedProject(null);
+      }
+    };
+
+    handleLocationChange();
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
+
+  // Keyboard navigation and backdrop lock when modal is open
   useEffect(() => {
     if (!selectedProject) return;
 
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open');
 
     const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
-
-    const handlePopState = (event: PopStateEvent) => {
-      const projectId = event.state?.pipInventionModal as ProjectId | undefined;
-      const project = PROJECTS.find((item) => item.id === projectId);
-      if (project) {
-        setIsFullScreen(true);
-        setSelectedProject(project);
-      } else {
-        setSelectedProject(null);
-      }
-    };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -214,12 +228,11 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('popstate', handlePopState);
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('popstate', handlePopState);
       document.body.style.overflow = previousOverflow;
+      document.body.classList.remove('modal-open');
       previousFocus?.focus();
     };
   }, [selectedProject]);
@@ -228,11 +241,9 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
   const renderNightlightArtwork = (large = false) => (
     <div
       className={'ultimate-lantern-scene' + (large ? ' ultimate-art-large' : '') + (isNightPreview ? ' is-night' : ' is-day')}
-      style={{
-        '--project-glow': glow.hex,
-        '--project-hue': ({ amber: '0deg', lavender: '245deg', blush: '320deg', starlight: '205deg' } as const)[glow.id],
-      } as React.CSSProperties}
+      style={{ '--project-glow': glow.hex } as React.CSSProperties}
     >
+      <div className="ultimate-lamp-core" />
       <div className="ultimate-lantern-halo ultimate-halo-one" aria-hidden="true" />
       <div className="ultimate-lantern-halo ultimate-halo-two" aria-hidden="true" />
       <span className="ultimate-lantern-moon" aria-hidden="true">{isNightPreview ? '☾' : '☼'}</span>
@@ -240,10 +251,9 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       <span className="ultimate-lantern-star ultimate-lantern-star-two" aria-hidden="true">✧</span>
       <img
         src="/assets/pip_dream_lantern.png"
-        loading="lazy"
-        decoding="async"
         alt="Pip’s crescent moon dream lantern"
         className="ultimate-lantern-image"
+        style={{ filter: `drop-shadow(0 0 22px ${glow.hex})` }}
         onError={(event) => { event.currentTarget.style.opacity = '0'; }}
       />
       <div className="ultimate-lantern-footer">
@@ -356,12 +366,16 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
           {PROJECTS.map((project, index) => (
             <article
               key={project.id}
-              onClick={(event) => {
-                const target = event.target as HTMLElement;
-                if (target.closest('button, a, input, select, textarea, [role="button"]')) return;
-                openProject(project);
+              tabIndex={0}
+              role="button"
+              onClick={() => openProject(project)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openProject(project);
+                }
               }}
-              className={'ultimate-project-card ultimate-project-' + project.id + ' group'}
+              className={'ultimate-project-card ultimate-project-' + project.id + ' cursor-pointer group focus:outline-none focus:ring-4 focus:ring-rich-berry/30 dark:focus:ring-star-gold/40'}
               style={{ '--project-accent': project.accent, animationDelay: (index * 120) + 'ms' } as React.CSSProperties}
               data-project-card="true"
               aria-label={'Open ' + project.title + ' in full screen'}
@@ -452,15 +466,10 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                     ? (deliveryStatus === 'dispatching' ? 'IN FLIGHT' : 'ROOFTOPS CLEAR')
                     : `${toyStats.height} Stories High`}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => openProject(project)}
-                  className="ultimate-project-cta group-hover:scale-102 transition-transform"
-                  aria-label={project.action + ' in full screen'}
-                >
+                <span className="ultimate-project-cta group-hover:scale-102 transition-transform">
                   <span>{project.action} (Full Screen)</span>
                   <Maximize2 className="h-4 w-4" />
-                </button>
+                </span>
               </div>
             </article>
           ))}
@@ -476,21 +485,17 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
       {/* FULL-SCREEN DEDICATED INVENTION MODAL */}
       {selectedProject && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto overflow-x-hidden overscroll-contain"
-          onClick={(event) => {
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
+          onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeProject();
           }}
         >
           <section
             ref={modalRef}
-            onClick={(event) => {
-              // The default dialog is full-screen, so its empty surface acts as the backdrop.
-              if (event.target === event.currentTarget) closeProject();
-            }}
-            className={`pip-project-dialog relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
+            className={`relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
               isFullScreen
-                ? 'fixed inset-0 w-full max-w-full h-[100dvh] rounded-none z-50 p-3 sm:p-8 overflow-y-auto'
-                : 'w-full max-w-5xl max-h-[92dvh] rounded-3xl p-4 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
+                ? 'fixed inset-0 w-screen h-screen rounded-none z-[101] p-4 sm:p-8 overflow-y-auto'
+                : 'w-full max-w-5xl max-h-[92vh] rounded-3xl z-[101] p-6 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
             }`}
             role="dialog"
             aria-modal="true"
@@ -499,32 +504,32 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
             style={{ '--project-accent': selectedProject.accent } as React.CSSProperties}
           >
             {/* Top Modal Navigation Header */}
-            <header className="pip-project-dialog-header flex items-center justify-between border-b border-rich-berry/15 dark:border-white/10 pb-4 mb-6">
-              <div className="pip-project-dialog-brand flex items-center gap-3">
-                <span className="px-3 py-1 rounded-full bg-soft-blush dark:bg-plum border border-rich-berry/20 text-xs font-bubbly font-bold uppercase tracking-wider text-rich-berry dark:text-star-gold">
+            <header className="relative z-50 bg-cream dark:bg-[#1a1226] pt-2 pb-4 mb-6 border-b border-rich-berry/15 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={closeProject}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer"
+                  title="Back to Observatory Page"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Observatory</span>
+                </button>
+
+                <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-soft-blush dark:bg-plum border border-rich-berry/20 text-xs font-bubbly font-bold uppercase tracking-wider text-rich-berry dark:text-star-gold">
                   INVENTION {selectedProject.number} · {selectedProject.label}
                 </span>
-                <h2 id="ultimate-modal-title" className="font-serif-headline text-xl sm:text-3xl font-bold text-plum dark:text-cream break-words">
+                <h2 id="ultimate-modal-title" className="font-serif-headline text-xl sm:text-2xl font-bold text-plum dark:text-cream">
                   {selectedProject.title}
                 </h2>
               </div>
 
               {/* Action Buttons: Fullscreen Toggle & Close */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={closeProject}
-                  className="min-h-11 px-3 py-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm inline-flex items-center gap-1.5"
-                  title="Back to inventions"
-                  aria-label="Back to inventions"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="text-xs font-bold">Back</span>
-                </button>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={toggleFullScreen}
-                  className="min-h-11 min-w-11 p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm"
+                  className="p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-white/60 dark:bg-white/10 hover:bg-rich-berry/10 dark:hover:bg-white/20 text-plum dark:text-cream transition-all shadow-sm cursor-pointer"
                   title={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
                   aria-label={isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen'}
                 >
@@ -535,7 +540,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                   ref={closeButtonRef}
                   type="button"
                   onClick={closeProject}
-                  className="min-h-11 min-w-11 p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-rich-berry text-white hover:bg-rich-berry/90 transition-all shadow-sm"
+                  className="p-2.5 rounded-xl border border-rich-berry/20 dark:border-white/15 bg-rich-berry text-white hover:bg-rich-berry/90 transition-all shadow-sm cursor-pointer"
                   title="Close Invention (Esc)"
                   aria-label="Close project"
                 >
@@ -753,6 +758,21 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Bottom Return to Observatory Footer Bar */}
+              <div className="pt-6 mt-8 border-t border-rich-berry/15 dark:border-white/10 flex flex-wrap items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={closeProject}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bubbly font-bold text-sm shadow-lg transition-all active:scale-95 cursor-pointer"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>Return to Observatory Gallery</span>
+                </button>
+                <span className="text-xs font-bubbly text-warm-brown/60 dark:text-cream/50">
+                  Pip’s Midnight Observatory · Press Esc or Back button anytime
+                </span>
+              </div>
             </div>
           </section>
         </div>

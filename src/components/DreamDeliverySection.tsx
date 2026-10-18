@@ -878,6 +878,25 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               </g>
             </svg>
 
+            {/* Direct HTML Button Overlays directly over each rooftop for 100% reliable clicks & accessibility */}
+            {stations.map((st, idx) => (
+              <button
+                key={'btn-overlay-' + st.id}
+                type="button"
+                onClick={() => flyToStation(idx)}
+                style={{
+                  position: 'absolute',
+                  left: `${(st.x / 800) * 100}%`,
+                  top: `${(st.y / 450) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                aria-label={`Fly Pip to ${st.name}`}
+                className="z-30 w-16 h-16 rounded-full cursor-pointer hover:bg-star-gold/25 focus:ring-2 focus:ring-star-gold transition-all flex items-center justify-center group/btn"
+              >
+                <span className="sr-only">Fly to {st.name}</span>
+              </button>
+            ))}
+
             {/* Floating Dream Cloud Pop-Up when delivered */}
             {activeBubble && (
               <div

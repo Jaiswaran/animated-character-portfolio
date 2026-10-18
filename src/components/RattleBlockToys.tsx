@@ -613,9 +613,22 @@ export const RattleBlockToys: React.FC<RattleBlockToysProps> = ({
                       </div>
                     )}
 
-                    {/* Column Floor Marker */}
-                    <div className="w-full text-center mt-auto pt-2 border-t border-rich-berry/15 dark:border-white/10 text-[10px] font-bubbly font-bold text-warm-brown/60 dark:text-cream/40">
-                      Col {colIdx + 1}
+                    {/* Column Floor Marker & Direct Add Button */}
+                    <div className="w-full text-center mt-auto pt-2 border-t border-rich-berry/15 dark:border-white/10 flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bubbly font-bold text-warm-brown/60 dark:text-cream/40">
+                        Col {colIdx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dropBlock(colIdx);
+                        }}
+                        disabled={isFull}
+                        className="w-full py-1 px-1 rounded-lg bg-soft-blush dark:bg-white/10 hover:bg-rich-berry text-rich-berry hover:text-white dark:text-star-gold dark:hover:text-plum font-bubbly font-bold text-[10px] transition-colors disabled:opacity-30 disabled:cursor-default"
+                      >
+                        {isFull ? 'Full' : '+ Stack'}
+                      </button>
                     </div>
                   </div>
                 );

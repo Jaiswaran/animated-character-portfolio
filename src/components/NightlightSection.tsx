@@ -68,19 +68,9 @@ export const NightlightSection: React.FC<NightlightSectionProps> = ({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-          {/* Lantern Visual Showcase with Dynamic Glow */}
+          {/* Lantern Visual Showcase with Fixed Background and Lamp-Only Color Change */}
           <div className="lg:col-span-6 flex justify-center">
             <div className="relative w-full max-w-md flex justify-center">
-              {/* Dynamic Radiance Glow Aura */}
-              <div
-                className="absolute inset-0 rounded-full blur-3xl opacity-75 transition-all duration-700 pointer-events-none"
-                style={{
-                  backgroundColor: currentGlow.hex,
-                  transform: isNightAmbience ? 'scale(1.2)' : 'scale(0.9)',
-                }}
-                aria-hidden="true"
-              />
-
               <div
                 data-project-card="true"
                 className={`project-card relative z-10 p-5 rounded-[40px] border-4 border-rich-berry/20 shadow-2xl w-full transition-colors duration-500 ${
@@ -149,13 +139,26 @@ export const NightlightSection: React.FC<NightlightSectionProps> = ({
                     </div>
                   )}
 
+                  {/* Dynamic Radiance Glow localized strictly inside the lamp */}
+                  <div
+                    className="absolute w-36 h-36 rounded-full blur-xl pointer-events-none transition-colors duration-500"
+                    style={{
+                      backgroundColor: currentGlow.hex,
+                      opacity: isNightAmbience ? 0.85 : 0.65,
+                    }}
+                    aria-hidden="true"
+                  />
+
                   <img
                     src="/assets/pip_dream_lantern.png"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = PIP_LANTERN_FALLBACK;
                     }}
                     alt="Pip's official dream lantern featuring a smiling crescent moon glowing warmly with carved star accents"
-                    className="w-full max-h-[290px] object-contain transform hover:scale-105 transition-transform duration-700 drop-shadow-2xl"
+                    style={{
+                      filter: `drop-shadow(0 0 20px ${currentGlow.hex})`,
+                    }}
+                    className="relative z-10 w-full max-h-[290px] object-contain transform hover:scale-105 transition-all duration-500"
                   />
                 </div>
 
