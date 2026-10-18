@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Star, Sparkles } from 'lucide-react';
 export const FooterSection: React.FC = () => {
+  const [secretAnswer, setSecretAnswer] = useState<'found' | 'clue' | null>(null);
 
   return (
     <footer
@@ -52,6 +53,31 @@ export const FooterSection: React.FC = () => {
         <p className="text-cream/50 text-[11px] leading-relaxed text-center sm:text-left">
           Crafted with warmth, starlight, and gentle whimsy. Character design and visual imagery property of the haX.baby challenge repository. Official assets: Pip Avatar Cloud, Pip Lullaby Music Box, Pip Crescent Dream Lantern, and Pip Staff Portrait. No nightmares were harmed in the making of this observatory.
         </p>
+
+        <section className="pip-secret-check-in" aria-labelledby="pip-secret-question">
+          <div className="pip-secret-check-in-star" aria-hidden="true">✦</div>
+          <h2 id="pip-secret-question">One last thing before you drift away…</h2>
+          <p>Did you find Pip's Secret Star?</p>
+          <div className="pip-secret-check-in-actions">
+            <button type="button" onClick={() => setSecretAnswer('found')} aria-pressed={secretAnswer === 'found'}>
+              Yes, I found it!
+            </button>
+            <button type="button" onClick={() => setSecretAnswer('clue')} aria-pressed={secretAnswer === 'clue'}>
+              Not yet — give me a clue
+            </button>
+          </div>
+          {secretAnswer === 'found' && (
+            <p className="pip-secret-answer" role="status">
+              <span aria-hidden="true">✧</span> Well done, little stargazer. That tiny light was waiting just for you.
+            </p>
+          )}
+          {secretAnswer === 'clue' && (
+            <div className="pip-secret-answer" role="status">
+              <p>Here's your clue: go to the very last story scene, <em>The Nursery Sleeps</em>. Look for the smallest softly blinking star in the illustration, then tap it—or focus it and press Enter or Space—to wake the secret.</p>
+              <a href="#pip-scene-5">Take me to the final scene <span aria-hidden="true">↗</span></a>
+            </div>
+          )}
+        </section>
       </div>
     </footer>
   );

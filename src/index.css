@@ -1394,3 +1394,128 @@ body { overflow-x: clip; }
 .dark #about [class*="bg-cream/50"] [class*="text-[10px]"] { color: #e2d1d8; }
 #about [class*="bg-cream/50"] [class*="text-amber-500"] { color: #8a4f00; }
 .dark #about [class*="bg-cream/50"] [class*="text-amber-500"] { color: #ffd98f; }
+
+
+/* Pip's lightweight procedural 3D character */
+.pip-3d-frame {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 48% 38%, rgba(255,255,255,.95), transparent 46%),
+    radial-gradient(ellipse at 50% 83%, rgba(241,201,214,.34), transparent 40%),
+    linear-gradient(180deg, #fffaf1 0%, #f7e9df 100%);
+}
+.dark .pip-3d-frame {
+  background:
+    radial-gradient(ellipse at 48% 38%, rgba(112,82,145,.22), transparent 48%),
+    radial-gradient(ellipse at 50% 83%, rgba(163,64,99,.16), transparent 45%),
+    linear-gradient(180deg, #29213a 0%, #1f172b 100%);
+}
+.pip-3d-stage {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  min-height: 300px;
+  max-height: 570px;
+  overflow: hidden;
+  border-radius: inherit;
+  touch-action: pan-y;
+}
+.pip-3d-canvas, .pip-3d-fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pip-3d-canvas { opacity: 0; transition: opacity .3s ease; }
+.pip-3d-canvas.is-ready { opacity: 1; }
+.pip-3d-fallback { z-index: 1; object-fit: contain; padding: .45rem; }
+.pip-3d-canvas.is-ready ~ .pip-3d-orbit { opacity: .8; }
+.pip-3d-orbit {
+  position: absolute;
+  z-index: 0;
+  top: 40%;
+  left: 50%;
+  width: 72%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(211,174,106,.2);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%,-50%) rotate(-18deg) scaleY(.48);
+  transition: opacity .3s ease;
+  opacity: .32;
+}
+.pip-3d-orbit-two { width: 84%; transform: translate(-50%,-50%) rotate(27deg) scaleY(.38); border-color: rgba(163,64,99,.13); }
+.pip-3d-badge {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  margin: 0 .65rem .65rem;
+  padding: .55rem .6rem;
+  border: 1px solid rgba(163,64,99,.14);
+  border-radius: 999px;
+  color: #6d4053;
+  background: rgba(255,248,241,.9);
+  box-shadow: 0 4px 18px rgba(60,36,58,.07);
+  font: 800 .61rem/1.3 'Quicksand',sans-serif;
+}
+.dark .pip-3d-badge { color: #ffe9ab; background: rgba(36,27,53,.9); border-color: rgba(243,207,117,.2); }
+.pip-3d-live-dot { width: .4rem; height: .4rem; flex: 0 0 auto; border-radius: 50%; background: #a34063; box-shadow: 0 0 0 3px rgba(163,64,99,.12); }
+.dark .pip-3d-live-dot { background: #f3cf75; box-shadow: 0 0 0 3px rgba(243,207,117,.13); }
+.pip-3d-live-dot.is-moving { animation: pip-3d-dot-pulse 2.4s ease-in-out infinite; }
+.pip-3d-badge-divider { opacity: .42; }
+@keyframes pip-3d-dot-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.pip-secret-check-in {
+  display: grid;
+  justify-items: center;
+  gap: .7rem;
+  margin: .5rem auto 0;
+  padding: clamp(1.2rem,4vw,2rem);
+  max-width: 760px;
+  border: 1px solid rgba(243,207,117,.24);
+  border-radius: 1.5rem;
+  text-align: center;
+  background: radial-gradient(ellipse at top, rgba(243,207,117,.09), transparent 70%), rgba(255,255,255,.025);
+}
+.pip-secret-check-in-star { color: #f3cf75; font-size: 1.35rem; text-shadow: 0 0 16px rgba(243,207,117,.4); }
+.pip-secret-check-in h2 { margin: 0; color: #f3cf75; font: 800 clamp(1.35rem,3.5vw,2rem)/1.1 'Fraunces',Georgia,serif; text-wrap: balance; }
+.pip-secret-check-in > p { margin: 0; color: #fff8f1; font: 650 .82rem/1.65 'Quicksand',sans-serif; }
+.pip-secret-check-in-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; width: 100%; }
+.pip-secret-check-in-actions button {
+  min-height: 2.75rem;
+  padding: .75rem 1rem;
+  border: 1px solid rgba(243,207,117,.36);
+  border-radius: 999px;
+  color: #fff8f1;
+  background: rgba(255,255,255,.045);
+  font: 800 .73rem/1.3 'Quicksand',sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background .2s ease, transform .2s ease;
+}
+.pip-secret-check-in-actions button:first-child,
+.pip-secret-check-in-actions button[aria-pressed="true"] { color: #241b35; background: #f3cf75; border-color: #f3cf75; }
+.pip-secret-check-in-actions button:hover { transform: translateY(-1px); }
+.pip-secret-check-in-actions button:focus-visible,
+.pip-secret-check-in a:focus-visible { outline: 3px solid #f3cf75; outline-offset: 3px; }
+.pip-secret-answer { max-width: 33rem; padding: .9rem 1rem; border-radius: 1rem; color: #fff8f1; background: rgba(255,255,255,.06); font: 650 .78rem/1.8 'Quicksand',sans-serif; overflow-wrap: anywhere; }
+.pip-secret-answer p { margin: 0; }
+.pip-secret-answer em { color: #f3cf75; font-style: normal; font-weight: 800; }
+.pip-secret-answer a { display: inline-flex; gap: .4rem; margin-top: .65rem; color: #f3cf75; font-weight: 800; text-decoration: underline; text-underline-offset: .2em; }
+@media (max-width: 450px) {
+  .pip-3d-stage { min-height: 270px; }
+  .pip-3d-badge { gap: .3rem; font-size: .54rem; margin-left: .45rem; margin-right: .45rem; }
+  .pip-secret-check-in { padding: 1rem .8rem; }
+  .pip-secret-check-in-actions { align-items: stretch; flex-direction: column; }
+  .pip-secret-check-in-actions button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pip-3d-canvas, .pip-3d-orbit, .pip-3d-badge, .pip-secret-check-in-actions button { transition: none !important; animation: none !important; }
+  .pip-3d-live-dot.is-moving { animation: none !important; }
+  .pip-secret-check-in-actions button:hover { transform: none; }
+}

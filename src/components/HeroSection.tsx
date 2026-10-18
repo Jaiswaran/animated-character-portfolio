@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, ArrowDown } from 'lucide-react';
 import { calculateTilt, TiltValues } from '../utils/tilt';
 import { useSoundEffects } from '../hooks/useSoundEffects';
+import { Pip3DCharacter } from './Pip3DCharacter';
 
 export const HeroSection: React.FC = () => {
   const { play } = useSoundEffects();
@@ -193,7 +194,7 @@ export const HeroSection: React.FC = () => {
               ref={cardRef}
               role="button"
               tabIndex={0}
-              aria-label="Say hello to Pip"
+              aria-label="Interactive 3D model of Pip. Move the pointer to make Pip's eyes follow you. Press Enter or Space, or tap Pip, to wave hello."
               onPointerMove={handlePointerMove}
               onPointerLeave={handlePointerLeave}
               onClick={handleHello}
@@ -208,7 +209,7 @@ export const HeroSection: React.FC = () => {
                   ? `perspective(700px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.015, 1.015, 1.015)`
                   : 'perspective(700px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
               }}
-              title="Move a mouse or pen to gently tilt Pip, or activate to say hello."
+              title="Move the pointer to guide Pip's eyes. Click, tap, or press Enter to wave hello."
             >
               {/* Dynamic Aura Glow */}
               <div
@@ -216,22 +217,13 @@ export const HeroSection: React.FC = () => {
                 aria-hidden="true"
               />
               <div className="relative p-3.5 sm:p-5 rounded-[40px] sm:rounded-[48px] bg-white dark:bg-plum shadow-2xl border-4 border-rich-berry/20 dark:border-star-gold/30">
-                <div className="overflow-hidden rounded-[30px] sm:rounded-[38px] relative bg-gradient-to-b from-cream to-soft-blush/30">
-                  <img
-                    src="/assets/pip_avatar_cloud.png"
-                    fetchPriority="high"
-                    decoding="async"
-                    alt="Pip the adorable skull baby in star nightcap and peach heart pajamas waving from atop a fluffy cloud"
-                    className={`w-full h-auto object-cover transform ${motionAllowed ? 'hover:scale-105 transition-transform duration-700 animate-floating' : ''}`}
-                  />
-                  {/* Badge Overlay */}
-                  <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-cream/95 dark:bg-plum-dark/95 border-2 border-rich-berry px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-                    <span className={`text-star-gold text-xs ${motionAllowed ? 'animate-spin-slow' : ''}`} aria-hidden="true">
-                      ⭐
-                    </span>
-                    <span className="font-bubbly text-[11px] sm:text-xs text-rich-berry dark:text-star-gold font-semibold">
-                      Pip • Waving from Bed
-                    </span>
+                <div className="pip-3d-frame rounded-[30px] sm:rounded-[38px] relative">
+                  <Pip3DCharacter motionAllowed={motionAllowed} isWaving={touchBounce} />
+                  <div className="pip-3d-badge" aria-hidden="true">
+                    <span className={`pip-3d-live-dot ${motionAllowed ? 'is-moving' : ''}`} />
+                    <span>Interactive 3D Pip</span>
+                    <span className="pip-3d-badge-divider">•</span>
+                    <span>Eyes follow you</span>
                   </div>
                 </div>
 
@@ -241,12 +233,6 @@ export const HeroSection: React.FC = () => {
                   aria-hidden="true"
                 >
                   <span className="text-lg sm:text-xl">🌙</span>
-                </div>
-                <div
-                  className="absolute -bottom-2 -left-2 sm:-bottom-3 sm:-left-3 text-xl sm:text-2xl select-none"
-                  aria-hidden="true"
-                >
-                  ☁️
                 </div>
               </div>
             </div>
