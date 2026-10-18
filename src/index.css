@@ -625,18 +625,55 @@ article[id] {
 .ultimate-lantern-star-one { top: 28%; left: 17%; font-size: 1.15rem; animation: ultimate-star-drift 4.5s ease-in-out infinite; }
 .ultimate-lantern-star-two { top: 42%; right: 16%; font-size: 1.7rem; animation: ultimate-star-drift 5.5s ease-in-out -1.5s infinite reverse; }
 @keyframes ultimate-star-drift { 0%,100% { transform: translateY(0) rotate(0); opacity: .6; } 50% { transform: translateY(-9px) rotate(14deg); opacity: 1; } }
-.ultimate-lantern-image {
+.ultimate-lantern-artwork {
   position: relative;
   z-index: 1;
-  width: 55%;
-  max-width: 230px;
-  max-height: 186px;
-  object-fit: contain;
-  /* The hue filter applies only to the transparent lantern image, never its scene. */
-  filter: hue-rotate(var(--lamp-hue, 0deg)) drop-shadow(0 0 22px rgba(243,207,117,.58));
+  isolation: isolate;
+  flex: 0 0 auto;
+  width: min(55%, 186px);
+  aspect-ratio: 1 / 1;
   animation: ultimate-lantern-float 5.6s ease-in-out infinite;
-  transition: filter .4s ease;
-  will-change: filter;
+  filter: drop-shadow(0 0 22px rgba(243,207,117,.58));
+  will-change: transform;
+}
+.ultimate-lantern-image {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* The original file has a cream JPEG backdrop; this alpha mask keeps only the physical lamp. */
+  mask-image: url('/assets/pip_dream_lantern-cutout-mask.svg');
+  mask-mode: alpha;
+  mask-size: 100% 100%;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: url('/assets/pip_dream_lantern-cutout-mask.svg');
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+}
+.ultimate-lantern-tint {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background-color: var(--lamp-color, #f3cf75);
+  opacity: .96;
+  mix-blend-mode: color;
+  /* Tint only the light-diffuser, retaining its 3D shading and details. */
+  mask-image: url('/assets/pip_dream_lantern-core-mask.svg');
+  mask-mode: alpha;
+  mask-size: 100% 100%;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: url('/assets/pip_dream_lantern-core-mask.svg');
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  transition: background-color .4s ease;
 }
 @keyframes ultimate-lantern-float { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-7px) rotate(1deg); } }
 .ultimate-lantern-footer { position: absolute; z-index: 3; bottom: .7rem; left: .8rem; right: .8rem; display: flex; justify-content: center; align-items: center; gap: .45rem; color: rgba(255,248,241,.73); font: 900 .53rem/1.2 'Quicksand', sans-serif; letter-spacing: .13em; }
@@ -731,7 +768,7 @@ article[id] {
 .dark .ultimate-modal-heading p { color: rgba(255,248,241,.7); }
 .ultimate-modal-content { display: grid; grid-template-columns: minmax(0,.94fr) minmax(0,1.06fr); align-items: start; gap: 1rem; padding: 1.2rem clamp(.9rem, 2vw, 1.5rem) 1.5rem; }
 .ultimate-art-large { grid-column: 1 / -1; min-height: 260px; border-radius: 1.2rem; }
-.ultimate-art-large .ultimate-lantern-image { max-height: 220px; max-width: 260px; }
+.ultimate-art-large .ultimate-lantern-artwork { width: min(55%, 220px); max-width: 260px; }
 .ultimate-art-large.ultimate-route-art { min-height: 300px; }
 .ultimate-art-large.ultimate-toy-art { min-height: 300px; }
 .ultimate-art-large .ultimate-toy-builder { transform: scale(1.14); transform-origin: bottom center; margin-bottom: .4rem; }
@@ -854,7 +891,7 @@ article[id] {
   .ultimate-project-card:last-child .ultimate-project-meta, .ultimate-project-card:last-child .ultimate-project-footer, .ultimate-project-card:last-child .ultimate-project-visual, .ultimate-project-card:last-child .ultimate-project-copy { grid-column: auto; grid-row: auto; }
   .ultimate-project-visual { border-radius: 1.05rem; }
   .ultimate-lantern-scene, .ultimate-route-art, .ultimate-toy-art { min-height: 250px; }
-  .ultimate-lantern-image { width: 51%; max-height: 175px; }
+  .ultimate-lantern-artwork { width: min(51%, 175px); }
   .ultimate-project-title-row h3 { font-size: 1.6rem; }
   .ultimate-project-description { font-size: .87rem; }
   .ultimate-project-footer { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .7rem; }
@@ -876,13 +913,13 @@ article[id] {
 @media (prefers-reduced-motion: reduce) {
   .ultimate-project-card, .ultimate-modal-backdrop, .ultimate-project-modal,
   .ultimate-halo-one, .ultimate-halo-two, .ultimate-lantern-star-one, .ultimate-lantern-star-two,
-  .ultimate-lantern-image, .ultimate-flight-line, .ultimate-flying-star, .ultimate-toy-piece,
+  .ultimate-lantern-artwork, .ultimate-flight-line, .ultimate-flying-star, .ultimate-toy-piece,
   .ultimate-live-dot, .ultimate-flight-status.is-moving .ultimate-live-dot {
     animation: none !important;
   }
   .ultimate-project-card, .ultimate-project-arrow, .ultimate-project-cta,
   .ultimate-project-cta svg, .ultimate-color-swatch, .ultimate-modal-close,
-  .ultimate-build-progress span, .ultimate-wind-track span {
+  .ultimate-lantern-tint, .ultimate-build-progress span, .ultimate-wind-track span {
     transition: none !important;
   }
   .ultimate-project-card:hover { transform: none; }
