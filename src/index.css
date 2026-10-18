@@ -1152,3 +1152,25 @@ html.dark body,
 @media (prefers-reduced-motion: reduce) {
   .pip-story-card, .pip-story-scene.is-active .pip-story-card { opacity: 1; transform: none; }
 }
+
+
+/* Hero character reactions: no parallax or decorative motion when reduced motion is requested. */
+@media (prefers-reduced-motion: reduce) {
+  #hero .animate-pulse,
+  #hero .animate-floating,
+  #hero .animate-floating-slow,
+  #hero .animate-soft-glow,
+  #hero .animate-spin-slow,
+  #hero .animate-bounce {
+    animation: none !important;
+  }
+  #hero .transition-transform,
+  #hero .transition-all,
+  #hero .transition-colors {
+    transition-duration: 0s !important;
+  }
+  #hero [class*="hover:scale"],
+  #hero [class*="hover:rotate"] {
+    transform: none !important;
+  }
+}
