@@ -128,10 +128,24 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 }) => {
   const { play } = useSoundEffects();
   const animationFrameRef = useRef<number | null>(null);
+  const parcelAnimationFrameRef = useRef<number | null>(null);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const isDispatchingRef = useRef(false);
 
-  // Stations state with delivery marks
-  const [stations, setStations] = useState<RooftopStation[]>(ROOFTOP_STATIONS);
-  const [activeStationIndex, setActiveStationIndex] = useState(1);
+  const scheduleTimeout = (callback: () => void, delay: number) => {
+    const timer = setTimeout(() => {
+      timeoutRefs.current = timeoutRefs.current.filter((item) => item !== timer);
+      callback();
+    }, delay);
+    timeoutRefs.current.push(timer);
+    return timer;
+  };
+
+  // No station starts as delivered; the ledger reflects actions taken in this session.
+  const [stations, setStations] = useState<RooftopStation[]>(() =>
+    ROOFTOP_STATIONS.map((station) => ({ ...station, delivered: false }))
+  );
+  const [activeStationIndex, setActiveStationIndex] = useState(0);
   const [status, setStatus] = useState<DeliveryStatus>('idle');
   const [progressFraction, setProgressFraction] = useState(0);
 
@@ -182,18 +196,29 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
   // Clean up RAF on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+      if (parcelAnimationFrameRef.current !== null) cancelAnimationFrame(parcelAnimationFrameRef.current);
+      timeoutRefs.current.forEach((timer) => clearTimeout(timer));
+      timeoutRefs.current = [];
+      animationFrameRef.current = null;
+      parcelAnimationFrameRef.current = null;
+      isDispatchingRef.current = false;
     };
   }, []);
 
   // Dispatch flight to a specific station
   const flyToStation = (targetIndex: number, isTour = false) => {
-    if (status === 'dispatching') return;
+    if (isDispatchingRef.current || targetIndex < 0 || targetIndex >= stations.length) return;
+    isDispatchingRef.current = true;
 
     if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (parcelAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(parcelAnimationFrameRef.current);
+      parcelAnimationFrameRef.current = null;
+    }
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
@@ -276,16 +301,18 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
 
       if (t < 1) {
         setDroppingParcel((prev) => (prev ? { ...prev, progress: t } : null));
-        requestAnimationFrame(animateDrop);
+        parcelAnimationFrameRef.current = requestAnimationFrame(animateDrop);
       } else {
+        parcelAnimationFrameRef.current = null;
         setDroppingParcel(null);
+        isDispatchingRef.current = false;
         // Play chiming celebration
         play('nightlight-change');
 
         // Add chimney smoke puff
         const puffId = Date.now();
         setSmokePuffs((prev) => [...prev, { id: puffId, x: station.chimneyX, y: station.chimneyY }]);
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setSmokePuffs((prev) => prev.filter((p) => p.id !== puffId));
         }, 1500);
 
@@ -301,7 +328,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
         if (isTour) {
           const nextIdx = (targetIndex + 1) % stations.length;
           if (nextIdx !== 0) {
-            setTimeout(() => {
+            scheduleTimeout(() => {
               flyToStation(nextIdx, true);
             }, 1400);
           } else {
@@ -311,12 +338,12 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       }
     };
 
-    requestAnimationFrame(animateDrop);
+    parcelAnimationFrameRef.current = requestAnimationFrame(animateDrop);
   };
 
   // Launch Grand Midnight Tour
   const startGrandTour = () => {
-    if (status === 'dispatching') return;
+    if (isDispatchingRef.current || status === 'dispatching') return;
     setIsTouring(true);
     // Reset deliveries for excitement
     setStations((prev) => prev.map((s) => ({ ...s, delivered: false })));
@@ -328,7 +355,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     play('button-click');
     const puffId = Date.now();
     setSmokePuffs((prev) => [...prev, { id: puffId, x, y }]);
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setSmokePuffs((prev) => prev.filter((p) => p.id !== puffId));
     }, 1500);
   };
