@@ -1658,3 +1658,21 @@ body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .pip-3d-canvas, .pip-realistic-stage.is-3d-ready .pip-realistic-art { transition: none; }
 }
+
+
+/* The modal has exactly one vertical scroller: its dialog, never the backdrop/page. */
+[data-testid="invention-modal-backdrop"] {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+[role="dialog"][aria-labelledby="ultimate-modal-title"] {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+html.modal-open {
+  overflow: hidden !important;
+}
+body.modal-open {
+  overflow: hidden !important;
+}

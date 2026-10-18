@@ -218,8 +218,28 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     const previousFocus =
       lastTriggerRef.current ||
       (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    const previousOverflow = document.body.style.overflow;
+
+    // Lock the document itself, not just body overflow. Fixed-position locking also
+    // prevents background-page movement on mobile browsers while the route modal scrolls.
+    const scrollYBeforeModal = window.scrollY;
+    const html = document.documentElement;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyStyles = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      left: document.body.style.left,
+      right: document.body.style.right,
+      width: document.body.style.width,
+    };
+
+    html.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollYBeforeModal}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
     document.body.classList.add('modal-open');
 
     const focusFrame = window.requestAnimationFrame(() =>
@@ -254,8 +274,17 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
     return () => {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      html.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyStyles.overflow;
+      document.body.style.position = previousBodyStyles.position;
+      document.body.style.top = previousBodyStyles.top;
+      document.body.style.left = previousBodyStyles.left;
+      document.body.style.right = previousBodyStyles.right;
+      document.body.style.width = previousBodyStyles.width;
       document.body.classList.remove('modal-open');
+
+      // Restore the exact page position after the modal's scroll lock is removed.
+      window.scrollTo(0, scrollYBeforeModal);
       if (previousFocus && document.contains(previousFocus)) {
         previousFocus.focus({ preventScroll: true });
       }
@@ -512,7 +541,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100020] flex items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
+            className="fixed inset-0 z-[100020] flex items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-hidden overscroll-none"
             data-testid="invention-modal-backdrop"
             onClick={(event) => {
               if (event.target === event.currentTarget) closeProject();
@@ -525,8 +554,8 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
               ref={modalRef}
               className={`relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
                 isFullScreen
-                  ? 'fixed inset-0 w-screen h-screen rounded-none z-[100021] p-4 sm:p-8 overflow-y-auto'
-                  : 'w-full max-w-5xl max-h-[92vh] rounded-3xl z-[100021] p-6 sm:p-8 overflow-y-auto border-3 border-rich-berry/30 dark:border-star-gold/25'
+                  ? 'fixed inset-0 w-screen h-[100dvh] rounded-none z-[100021] p-4 sm:p-8 overflow-y-auto overscroll-contain'
+                  : 'w-full max-w-5xl max-h-[92dvh] rounded-3xl z-[100021] p-6 sm:p-8 overflow-y-auto overscroll-contain border-3 border-rich-berry/30 dark:border-star-gold/25'
               }`}
             role="dialog"
             aria-modal="true"
