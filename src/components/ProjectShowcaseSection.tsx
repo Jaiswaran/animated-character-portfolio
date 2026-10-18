@@ -483,6 +483,10 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
         >
           <section
             ref={modalRef}
+            onClick={(event) => {
+              // The default dialog is full-screen, so its empty surface acts as the backdrop.
+              if (event.target === event.currentTarget) closeProject();
+            }}
             className={`pip-project-dialog relative bg-cream dark:bg-[#1a1226] text-warm-brown dark:text-cream shadow-2xl transition-all duration-300 flex flex-col ${
               isFullScreen
                 ? 'fixed inset-0 w-full max-w-full h-[100dvh] rounded-none z-50 p-3 sm:p-8 overflow-y-auto'
