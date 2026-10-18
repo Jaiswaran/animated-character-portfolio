@@ -5,19 +5,7 @@
 
 import React from 'react';
 import { Star, Sparkles } from 'lucide-react';
-import { useSoundEffects } from '../hooks/useSoundEffects';
-
-interface FooterSectionProps {
-  onOpenEasterEgg: () => void;
-}
-
-export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg }) => {
-  const { play } = useSoundEffects();
-
-  const handleStarClick = () => {
-    play('easter-egg-open');
-    onOpenEasterEgg();
-  };
+export const FooterSection: React.FC = () => {
 
   return (
     <footer
@@ -48,47 +36,17 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ onOpenEasterEgg })
           </div>
         </div>
 
-        {/* Constellation of Decorative Stars for Secret Interaction */}
-        <div className="flex items-center justify-center gap-3 py-2 text-star-gold/60 text-sm select-none">
-          <button
-            onClick={handleStarClick}
-            className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
-            aria-label="Secret constellation star 1"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
+        {/* Decorative constellation; the only hidden secret is in the final story scene. */}
+        <div className="flex items-center justify-center gap-3 py-2 text-star-gold/60 text-sm select-none" aria-hidden="true">
+          <Sparkles className="w-4 h-4" />
           <span>•</span>
-          <button
-            onClick={handleStarClick}
-            className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
-            aria-label="Secret constellation star 2"
-          >
-            <Star className="w-4 h-4 fill-star-gold/40" />
-          </button>
+          <Star className="w-4 h-4 fill-star-gold/40" />
           <span>•</span>
-          <button
-            onClick={handleStarClick}
-            className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
-            aria-label="Secret constellation star 3"
-          >
-            <Sparkles className="w-5 h-5 text-star-gold" />
-          </button>
+          <Sparkles className="w-5 h-5 text-star-gold" />
           <span>•</span>
-          <button
-            onClick={handleStarClick}
-            className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
-            aria-label="Secret constellation star 4"
-          >
-            <Star className="w-4 h-4 fill-star-gold/40" />
-          </button>
+          <Star className="w-4 h-4 fill-star-gold/40" />
           <span>•</span>
-          <button
-            onClick={handleStarClick}
-            className="hover:scale-125 transition-transform cursor-pointer p-1 text-star-gold hover:text-white"
-            aria-label="Secret constellation star 5"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
+          <Sparkles className="w-4 h-4" />
         </div>
 
         <p className="text-cream/50 text-[11px] leading-relaxed text-center sm:text-left">
