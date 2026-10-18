@@ -4,17 +4,12 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
 import { DreamEntry, formatOdometerDigits, validateDreamInput } from '../utils/counter';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 
 const INITIAL_ENTRIES: DreamEntry[] = [];
 
-interface GuestbookSectionProps {
-  onOpenEasterEgg: () => void;
-}
-
-export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEasterEgg }) => {
+export const GuestbookSection: React.FC = () => {
   const { play } = useSoundEffects();
   const GUESTBOOK_STORAGE_KEY = 'pip_guestbook_ledger';
   const VISIT_STORAGE_KEY = 'pip_observatory_local_visits';
@@ -94,11 +89,6 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
   const handleSelectStamp = (stamp: string) => {
     play('button-click');
     setSelectedStamp(stamp);
-  };
-
-  const handleOpenEgg = () => {
-    play('easter-egg-open');
-    onOpenEasterEgg();
   };
 
   const odometerDigits = formatOdometerDigits(visitCount, 6);
@@ -259,8 +249,8 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
           </div>
         </div>
 
-        {/* Mechanical Visitor Counter & Easter Egg Secret Constellation */}
-        <div className="mt-16 pt-8 border-t border-rich-berry/15 flex flex-col sm:flex-row items-center justify-between gap-6">
+        {/* Mechanical Visitor Counter */}
+        <div className="mt-16 pt-8 border-t border-rich-berry/15 flex justify-center">
           {/* Early Web Mechanical LED Visitor Counter */}
           <div className="flex items-center gap-3">
             <span className="font-bubbly text-xs font-bold text-warm-brown dark:text-cream tracking-wide">
@@ -281,18 +271,6 @@ export const GuestbookSection: React.FC<GuestbookSectionProps> = ({ onOpenEaster
             </div>
           </div>
 
-          {/* Secret Easter Egg Trigger */}
-          <button
-            onClick={handleOpenEgg}
-            className="font-bubbly text-xs text-rich-berry hover:text-plum dark:text-star-gold dark:hover:text-cream flex items-center gap-2 underline decoration-dashed transition-colors cursor-pointer"
-            aria-label="Wake Pip's Secret Dream Sprite"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-star-gold" aria-hidden="true" />
-            <span>Click to wake the Dream Sprite</span>
-            <span className="animate-bounce" aria-hidden="true">
-              💤
-            </span>
-          </button>
         </div>
       </div>
     </section>
