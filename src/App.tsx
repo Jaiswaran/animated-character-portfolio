@@ -25,10 +25,13 @@ function ObservatoryContent() {
   // Theme state persisted in localStorage
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved === 'dark') return true;
-      if (saved === 'light') return false;
-      return false;
+      try {
+        const saved = localStorage.getItem(THEME_STORAGE_KEY);
+        if (saved === 'dark') return true;
+        if (saved === 'light') return false;
+      } catch {
+        // The theme still works for this session when browser storage is unavailable.
+      }
     }
     return false;
   });
@@ -36,9 +39,11 @@ function ObservatoryContent() {
   // Custom Cursor state persisted in localStorage (default enabled on desktop)
   const [isCursorEnabled, setIsCursorEnabled] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(CURSOR_STORAGE_KEY);
-      if (saved === 'false') return false;
-      return true;
+      try {
+        return localStorage.getItem(CURSOR_STORAGE_KEY) !== 'false';
+      } catch {
+        // Custom cursor is an optional enhancement; keep the default if storage is blocked.
+      }
     }
     return true;
   });

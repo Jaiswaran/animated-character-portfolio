@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, ArrowDown } from 'lucide-react';
 import { calculateTilt, TiltValues } from '../utils/tilt';
 import { useSoundEffects } from '../hooks/useSoundEffects';
@@ -15,23 +15,69 @@ export const HeroSection: React.FC = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [touchBounce, setTouchBounce] = useState(false);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
+  // Respect the OS motion preference, including when it changes while the page is open.
+  const [motionAllowed, setMotionAllowed] = useState(true);
+  const bounceTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const syncMotionPreference = () => {
+      const allowed = !motionPreference.matches;
+      setMotionAllowed(allowed);
+
+      if (!allowed) {
+        setIsHovered(false);
+        setTilt({ rotateX: 0, rotateY: 0 });
+        setTouchBounce(false);
+        if (bounceTimerRef.current !== null) {
+          window.clearTimeout(bounceTimerRef.current);
+          bounceTimerRef.current = null;
+        }
+      }
+    };
+
+    syncMotionPreference();
+    motionPreference.addEventListener?.('change', syncMotionPreference);
+
+    return () => {
+      motionPreference.removeEventListener?.('change', syncMotionPreference);
+      if (bounceTimerRef.current !== null) window.clearTimeout(bounceTimerRef.current);
+    };
+  }, []);
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Touch input should tap to greet, not make the character chase a finger.
+    if (!motionAllowed || e.pointerType === 'touch' || !cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    const newTilt = calculateTilt(e.clientX, e.clientY, rect, 7);
+    // calculateTilt clamps all edges, so the rotation can never run away.
+    const newTilt = calculateTilt(e.clientX, e.clientY, rect, 5);
     setTilt(newTilt);
     setIsHovered(true);
   };
 
-  const handleMouseLeave = () => {
+  const handlePointerLeave = () => {
     setIsHovered(false);
     setTilt({ rotateX: 0, rotateY: 0 });
   };
 
-  const handleTouch = () => {
+  const handleHello = () => {
     play('button-click');
+    if (!motionAllowed) return;
+
+    if (bounceTimerRef.current !== null) window.clearTimeout(bounceTimerRef.current);
     setTouchBounce(true);
-    setTimeout(() => setTouchBounce(false), 600);
+    bounceTimerRef.current = window.setTimeout(() => {
+      setTouchBounce(false);
+      bounceTimerRef.current = null;
+    }, 420);
+  };
+
+  const handleCharacterKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleHello();
+    }
   };
 
   return (
@@ -145,22 +191,28 @@ export const HeroSection: React.FC = () => {
           <div className="lg:col-span-5 flex justify-center">
             <div
               ref={cardRef}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-              onTouchStart={handleTouch}
-              className="relative w-full max-w-[280px] sm:max-w-md transition-transform duration-200 ease-out cursor-pointer"
+              role="button"
+              tabIndex={0}
+              aria-label="Say hello to Pip"
+              onPointerMove={handlePointerMove}
+              onPointerLeave={handlePointerLeave}
+              onClick={handleHello}
+              onKeyDown={handleCharacterKeyDown}
+              className={`relative w-full max-w-[280px] sm:max-w-md cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-star-gold focus-visible:ring-offset-4 rounded-[48px] ${motionAllowed ? 'transition-transform duration-200 ease-out' : ''}`}
               style={{
-                transform: touchBounce
-                  ? 'scale(1.05) translateY(-6px)'
+                transform: !motionAllowed
+                  ? 'none'
+                  : touchBounce
+                  ? 'scale(1.035) translateY(-4px)'
                   : isHovered
-                  ? `perspective(700px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.02, 1.02, 1.02)`
+                  ? `perspective(700px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(1.015, 1.015, 1.015)`
                   : 'perspective(700px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
               }}
-              title="Gently tilt or tap to say hello to Pip!"
+              title="Move a mouse or pen to gently tilt Pip, or activate to say hello."
             >
               {/* Dynamic Aura Glow */}
               <div
-                className="absolute inset-0 bg-gradient-to-tr from-soft-blush via-star-gold/40 to-dream-lavender rounded-[48px] blur-2xl opacity-75 -z-10 animate-soft-glow"
+                className={`absolute inset-0 bg-gradient-to-tr from-soft-blush via-star-gold/40 to-dream-lavender rounded-[48px] blur-2xl opacity-75 -z-10 ${motionAllowed ? 'animate-soft-glow' : ''}`}
                 aria-hidden="true"
               />
               <div className="relative p-3.5 sm:p-5 rounded-[40px] sm:rounded-[48px] bg-white dark:bg-plum shadow-2xl border-4 border-rich-berry/20 dark:border-star-gold/30">
@@ -168,11 +220,11 @@ export const HeroSection: React.FC = () => {
                   <img
                     src="/assets/pip_avatar_cloud.png"
                     alt="Pip the adorable skull baby in star nightcap and peach heart pajamas waving from atop a fluffy cloud"
-                    className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700 animate-floating"
+                    className={`w-full h-auto object-cover transform ${motionAllowed ? 'hover:scale-105 transition-transform duration-700 animate-floating' : ''}`}
                   />
                   {/* Badge Overlay */}
                   <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-cream/95 dark:bg-plum-dark/95 border-2 border-rich-berry px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-                    <span className="text-star-gold animate-spin-slow text-xs" aria-hidden="true">
+                    <span className={`text-star-gold text-xs ${motionAllowed ? 'animate-spin-slow' : ''}`} aria-hidden="true">
                       ⭐
                     </span>
                     <span className="font-bubbly text-[11px] sm:text-xs text-rich-berry dark:text-star-gold font-semibold">
@@ -183,7 +235,7 @@ export const HeroSection: React.FC = () => {
 
                 {/* Floating Crescent Moon Accent Badge */}
                 <div
-                  className="absolute -top-3 -left-3 sm:-top-4 sm:-left-4 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-star-gold border-2 border-rich-berry flex items-center justify-center text-rich-berry shadow-lg animate-floating-slow"
+                  className={`absolute -top-3 -left-3 sm:-top-4 sm:-left-4 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-star-gold border-2 border-rich-berry flex items-center justify-center text-rich-berry shadow-lg ${motionAllowed ? 'animate-floating-slow' : ''}`}
                   aria-hidden="true"
                 >
                   <span className="text-lg sm:text-xl">🌙</span>
