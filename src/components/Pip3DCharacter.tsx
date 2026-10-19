@@ -33,18 +33,6 @@ type SceneComponent = React.ComponentType<{
 
 const RESTING_GAZE: Gaze = { x: 0, y: 0, tiltX: 0, tiltY: 0 };
 
-function supportsWebGL(): boolean {
-  try {
-    const probe = document.createElement('canvas');
-    const gl = (probe.getContext('webgl2') || probe.getContext('webgl')) as WebGLRenderingContext | null;
-    if (!gl) return false;
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, isWaving }) => {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [gaze, setGaze] = useState<Gaze>(RESTING_GAZE);
@@ -53,20 +41,27 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
   const [sceneReady, setSceneReady] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
 
-  // Keep the lightweight portrait as the instant first-paint experience.
-  // Three.js is loaded only when the visitor reaches/interacts with Pip, avoiding
-  // a large WebGL task during mobile startup and preserving the 2D fallback meanwhile.
+  // Keep the lightweight portrait for first paint, then initialize Three.js after a
+  // short delay. Do not allocate and immediately destroy a probe WebGL context: mobile
+  // browsers enforce strict GPU-context limits, and that probe can starve the real renderer.
+  // Hover, click, or keyboard focus can request the scene immediately.
   useEffect(() => {
+    if (Scene || sceneFailed) return;
+
     let cancelled = false;
     let loading = false;
+    let idleTimer: number | null = null;
 
     const loadScene = () => {
       if (cancelled || loading || Scene || sceneFailed) return;
       loading = true;
-      if (!supportsWebGL()) {
-        setSceneFailed(true);
-        return;
+      if (idleTimer !== null) {
+        window.clearTimeout(idleTimer);
+        idleTimer = null;
       }
+
+      // Let the actual renderer decide whether WebGL is supported. Its initialization
+      // reports failures without replacing or hiding the preloaded portrait.
       import('./Pip3DScene')
         .then((module) => {
           if (!cancelled) setScene(() => module.Pip3DScene);
@@ -78,12 +73,18 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
 
     const stage = stageRef.current;
     if (!stage) return;
-    stage.addEventListener('pointerenter', loadScene, { passive: true, once: true });
-    stage.addEventListener('click', loadScene, { passive: true, once: true });
-    stage.addEventListener('focusin', loadScene, { passive: true, once: true });
+
+    stage.addEventListener('pointerenter', loadScene, { passive: true });
+    stage.addEventListener('click', loadScene, { passive: true });
+    stage.addEventListener('focusin', loadScene, { passive: true });
+
+    // Ensure 3D becomes available even if the visitor never hovers or taps the avatar.
+    // The delay lets the already-preloaded artwork paint first and retains code splitting.
+    idleTimer = window.setTimeout(loadScene, 1400);
 
     return () => {
       cancelled = true;
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
       stage.removeEventListener('pointerenter', loadScene);
       stage.removeEventListener('click', loadScene);
       stage.removeEventListener('focusin', loadScene);
