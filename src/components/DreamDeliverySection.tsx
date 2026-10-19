@@ -446,14 +446,21 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       const atStart = delta < 0 && base <= 0.001;
       const atEnd = delta > 0 && base >= 0.999;
 
-      // Let regular page/modal scrolling continue at either end of the journey.
-      if (atStart || atEnd) return;
+      // Release route ownership at the boundaries so page/modal scrolling and its
+      // progress synchronizer can resume immediately.
+      if (atStart || atEnd) {
+        wheelControlledRef.current = false;
+        return;
+      }
 
       // While over the actual rooftop map, use the wheel to advance the route
       // rather than scrolling the document/dialog at the same time.
+      if (isDispatchingRef.current || manualModeRef.current) {
+        wheelControlledRef.current = false;
+        return;
+      }
       event.preventDefault();
       wheelControlledRef.current = true;
-      if (isDispatchingRef.current || manualModeRef.current) return;
 
       const clampedDelta = Math.max(-220, Math.min(220, delta));
       targetScrollProgressRef.current = Math.min(
@@ -485,12 +492,18 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       const base = Math.min(1, Math.max(0, targetScrollProgressRef.current));
       const atStart = delta < 0 && base <= 0.001;
       const atEnd = delta > 0 && base >= 0.999;
-      if (atStart || atEnd) return;
+      if (atStart || atEnd) {
+        wheelControlledRef.current = false;
+        return;
+      }
 
       // A non-passive listener lets a swipe over the map drive Pip, not the page.
+      if (isDispatchingRef.current || manualModeRef.current) {
+        wheelControlledRef.current = false;
+        return;
+      }
       event.preventDefault();
       wheelControlledRef.current = true;
-      if (isDispatchingRef.current || manualModeRef.current) return;
 
       const clampedDelta = Math.max(-110, Math.min(110, delta));
       targetScrollProgressRef.current = Math.min(
@@ -502,9 +515,24 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       }
     };
 
-    const onRouteTouchEnd = () => { lastTouchY = null; };
+    const onRouteTouchEnd = () => {
+      lastTouchY = null;
+      // A touch gesture is over; subsequent document scrolling must be allowed
+      // to synchronize the route again instead of remaining permanently locked.
+      wheelControlledRef.current = false;
+    };
+
+    const onRoutePointerLeave = () => {
+      wheelControlledRef.current = false;
+      if (isDispatchingRef.current || manualModeRef.current) return;
+      targetScrollProgressRef.current = measureTargetScrollProgress();
+      if (scrollRafRef.current === null) {
+        scrollRafRef.current = requestAnimationFrame(stepSmoothScroll);
+      }
+    };
 
     routeCanvas?.addEventListener('wheel', onRouteWheel, { passive: false });
+    routeCanvas?.addEventListener('pointerleave', onRoutePointerLeave, { passive: true });
     routeCanvas?.addEventListener('touchstart', onRouteTouchStart, { passive: true });
     routeCanvas?.addEventListener('touchmove', onRouteTouchMove, { passive: false });
     routeCanvas?.addEventListener('touchend', onRouteTouchEnd, { passive: true });
@@ -516,6 +544,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     return () => {
       observer?.disconnect();
       routeCanvas?.removeEventListener('wheel', onRouteWheel);
+      routeCanvas?.removeEventListener('pointerleave', onRoutePointerLeave);
       routeCanvas?.removeEventListener('touchstart', onRouteTouchStart);
       routeCanvas?.removeEventListener('touchmove', onRouteTouchMove);
       routeCanvas?.removeEventListener('touchend', onRouteTouchEnd);
