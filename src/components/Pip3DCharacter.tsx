@@ -81,7 +81,7 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
 
     // Automatically hydrate the 3D model after the hero has had time to paint.
     // Keep the delay modest so refreshes don't leave the fallback visible indefinitely.
-    idleTimer = window.setTimeout(loadScene, 2200);
+    idleTimer = window.setTimeout(loadScene, 5000);
 
     return () => {
       cancelled = true;
