@@ -213,7 +213,7 @@ export const HeroSection: React.FC = () => {
             >
               {/* Dynamic Aura Glow */}
               <div
-                className={`absolute inset-0 bg-gradient-to-tr from-soft-blush via-star-gold/40 to-dream-lavender rounded-[48px] blur-2xl opacity-75 -z-10 ${motionAllowed ? 'animate-soft-glow' : ''}`}
+                className={`absolute inset-0 bg-gradient-to-tr from-soft-blush via-star-gold/40 to-dream-lavender rounded-[48px] blur-xl sm:blur-2xl opacity-75 -z-10 ${motionAllowed ? 'animate-soft-glow' : ''}`}
                 aria-hidden="true"
               />
               <Pip3DCharacter motionAllowed={motionAllowed} isWaving={touchBounce} />
