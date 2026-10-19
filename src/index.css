@@ -736,7 +736,7 @@ article[id] {
 .dark .ultimate-daynight-switch button { color: rgba(255,248,241,.65); }
 .dark .ultimate-daynight-switch button.is-active { background: #f3cf75; color: #241b35; }
 .ultimate-color-swatches { display: inline-flex; align-items: center; gap: .47rem; padding: 0 .1rem; }
-.ultimate-color-swatch { width: 1.04rem; height: 1.04rem; flex: 0 0 auto; border: 2px solid rgba(255,255,255,.92); border-radius: 50%; box-shadow: 0 2px 5px rgba(36,27,53,.14); transition: transform .2s ease; }
+.ultimate-color-swatch { width: 1.5rem; height: 1.5rem; min-width: 24px; min-height: 24px; flex: 0 0 24px; border: 2px solid rgba(255,255,255,.92); border-radius: 50%; box-shadow: 0 2px 5px rgba(36,27,53,.14); transition: transform .2s ease; }
 .ultimate-color-swatch:hover { transform: scale(1.16); }
 .ultimate-color-swatch.is-selected { outline: 2px solid #a34063; outline-offset: 2px; transform: scale(1.06); }
 .dark .ultimate-color-swatch.is-selected { outline-color: #f3cf75; }
