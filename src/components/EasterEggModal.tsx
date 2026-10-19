@@ -24,10 +24,12 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
 
   const playRef = useRef(play);
   playRef.current = play;
+  const closeRequestedRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) return;
 
+    closeRequestedRef.current = false;
     playRef.current('easter-egg-open');
 
     const activeEl = document.activeElement;
@@ -44,6 +46,8 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
     });
 
     const handleClose = () => {
+      if (closeRequestedRef.current) return;
+      closeRequestedRef.current = true;
       playRef.current('easter-egg-close');
       onCloseRef.current();
     };
@@ -60,11 +64,18 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
       const focusable = modalRef.current.querySelectorAll<HTMLElement>(
         'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
-      if (!focusable.length) return;
+      if (!focusable.length) {
+        event.preventDefault();
+        modalRef.current.focus();
+        return;
+      }
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      if (!modalRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -95,7 +106,9 @@ export const EasterEggModal: React.FC<EasterEggModalProps> = ({ isOpen, onClose 
   if (!isOpen || typeof document === 'undefined') return null;
 
   const close = () => {
-    play('easter-egg-close');
+    if (closeRequestedRef.current) return;
+    closeRequestedRef.current = true;
+    playRef.current('easter-egg-close');
     onCloseRef.current();
   };
 
