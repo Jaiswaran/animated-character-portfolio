@@ -836,7 +836,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
                     ? 'bg-amber-300 text-warm-brown opacity-85 cursor-wait'
                     : 'bg-star-gold hover:bg-amber-300 text-warm-brown hover:scale-105 active:scale-95'
                 }`}
-                aria-label="Dispatch dream to next rooftop"
+                aria-label="Send Next Dream — dispatch dream to next rooftop"
               >
                 <Send className="w-4 h-4" aria-hidden="true" />
                 <span>
@@ -1054,7 +1054,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 1: Whispering Gable */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(0)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(0);
+                  }
+                }}
                 aria-label="Fly to Whispering Gable"
               >
                 <polygon points="60,450 60,370 130,310 200,370 200,450" fill="#2d203f" />
@@ -1082,7 +1090,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 2: Copper Clocktower */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(1)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(1);
+                  }
+                }}
                 aria-label="Fly to Copper Clocktower"
               >
                 <rect x="285" y="240" width="70" height="210" fill="#261b36" />
@@ -1105,7 +1121,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 3: Beacon Point Lighthouse */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(2)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(2);
+                  }
+                }}
                 aria-label="Fly to Beacon Point"
               >
                 <polygon points="465,450 472,210 508,210 515,450" fill="#2d2242" />
@@ -1135,7 +1159,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 4: Cloud Nine Spire */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(3)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(3);
+                  }
+                }}
                 aria-label="Fly to Cloud Nine Spire"
               >
                 <polygon points="620,450 635,270 665,270 680,450" fill="#231735" />
@@ -1156,7 +1188,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 5: Harbor Tugboat */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(4)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(4);
+                  }
+                }}
                 aria-label="Fly to Harbor Tugboat"
               >
                 <path
