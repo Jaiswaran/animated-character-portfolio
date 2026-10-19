@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { Volume2, VolumeX, Play, Pause, Square, RotateCw } from 'lucide-react';
+import React from 'react';
+import { Volume2, VolumeX, Play, Pause, Square } from 'lucide-react';
 import { MELODY_PATTERNS } from '../utils/audioSynthesizer';
 import { getTempoLabel } from '../utils/lullaby';
 import { useSoundEffects } from '../hooks/useSoundEffects';
@@ -19,8 +19,6 @@ export interface LullabyControls {
   play: () => void;
   pause: () => void;
   stop: () => void;
-  windUp: (amount?: number) => number;
-  windup: number;
   activePatternIndex: number;
   setPattern: (index: number) => void;
   tempo: number;
@@ -38,7 +36,6 @@ interface LullabyLabSectionProps {
 
 export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby }) => {
   const { play: playSfx } = useSoundEffects();
-  const [keyRotated, setKeyRotated] = useState(false);
 
   const {
     isPlaying,
@@ -47,8 +44,6 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby })
     play,
     pause,
     stop,
-    windUp,
-    windup,
     activePatternIndex,
     setPattern,
     tempo,
@@ -101,20 +96,6 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby })
   // Handle Resonance Change
   const handleResonanceChange = (newRes: number) => {
     setResonance(newRes);
-  };
-
-  // Handle Wind Up Key (+25%)
-  const handleWindUp = () => {
-    playSfx('wind-key');
-    windUp(25);
-    setKeyRotated(true);
-    setTimeout(() => setKeyRotated(false), 500);
-
-    // If currently stopped, auto-start playback
-    if (!isPlaying) {
-      setMuted(false);
-      play();
-    }
   };
 
   // Calculate progress %
@@ -191,27 +172,6 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby })
                   />
                 </div>
 
-                {/* Wind-up key spinning indicator */}
-                <button
-                  onClick={handleWindUp}
-                  className={`absolute -bottom-4 right-6 bg-star-gold hover:bg-amber-300 border-2 border-warm-brown text-warm-brown px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-md cursor-pointer transition-all active:scale-95 ${
-                    isPlaying ? 'animate-bounce' : ''
-                  }`}
-                  aria-label="Wind up music box spring (+25%)"
-                  title="Click to wind up spring"
-                >
-                  <span
-                    className={`text-base inline-block transition-transform duration-500 ${
-                      keyRotated ? 'rotate-[360deg]' : ''
-                    }`}
-                    aria-hidden="true"
-                  >
-                    🔑
-                  </span>
-                  <span className="font-bubbly text-xs font-bold">
-                    Key: Wound {windup}%
-                  </span>
-                </button>
 
                 {/* Harmonizing Badge & Note Live Chime */}
                 {isPlaying && (
@@ -305,8 +265,8 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby })
                 </div>
               </div>
 
-              {/* Playback Action Buttons: Play, Pause, Stop, Wind Up */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              {/* Playback Action Buttons: Play, Pause, Stop */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
                 <button
                   onClick={handlePlay}
                   disabled={isPlaying}
@@ -344,14 +304,6 @@ export const LullabyLabSection: React.FC<LullabyLabSectionProps> = ({ lullaby })
                   <span>Stop</span>
                 </button>
 
-                <button
-                  onClick={handleWindUp}
-                  className="py-3 px-3 rounded-2xl bg-star-gold/30 hover:bg-star-gold/50 border border-star-gold/60 text-warm-brown dark:text-cream font-bubbly text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                  aria-label="Wind up music box spring (+25%)"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  <span>Wind (+25%)</span>
-                </button>
               </div>
 
               {/* Sliders for Tempo & Chime Resonance */}
