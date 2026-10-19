@@ -53,26 +53,42 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
   const [sceneReady, setSceneReady] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
 
-  // Load the 3D scene (and Three.js) after first paint.
+  // Keep the lightweight portrait as the instant first-paint experience.
+  // Three.js is loaded only when the visitor reaches/interacts with Pip, avoiding
+  // a large WebGL task during mobile startup and preserving the 2D fallback meanwhile.
   useEffect(() => {
-    if (!supportsWebGL()) {
-      setSceneFailed(true);
-      return;
-    }
-
     let cancelled = false;
-    import('./Pip3DScene')
-      .then((module) => {
-        if (!cancelled) setScene(() => module.Pip3DScene);
-      })
-      .catch(() => {
-        if (!cancelled) setSceneFailed(true);
-      });
+    let loading = false;
+
+    const loadScene = () => {
+      if (cancelled || loading || Scene || sceneFailed) return;
+      loading = true;
+      if (!supportsWebGL()) {
+        setSceneFailed(true);
+        return;
+      }
+      import('./Pip3DScene')
+        .then((module) => {
+          if (!cancelled) setScene(() => module.Pip3DScene);
+        })
+        .catch(() => {
+          if (!cancelled) setSceneFailed(true);
+        });
+    };
+
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.addEventListener('pointerenter', loadScene, { passive: true, once: true });
+    stage.addEventListener('click', loadScene, { passive: true, once: true });
+    stage.addEventListener('focusin', loadScene, { passive: true, once: true });
 
     return () => {
       cancelled = true;
+      stage.removeEventListener('pointerenter', loadScene);
+      stage.removeEventListener('click', loadScene);
+      stage.removeEventListener('focusin', loadScene);
     };
-  }, []);
+  }, [Scene, sceneFailed]);
 
   // Fallback behaviour: the 2D artwork's CSS eyes follow the pointer while the 3D model is unavailable.
   useEffect(() => {
