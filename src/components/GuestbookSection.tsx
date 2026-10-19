@@ -6,131 +6,123 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DreamEntry, formatOdometerDigits, validateDreamInput } from '../utils/counter';
 import { useSoundEffects } from '../hooks/useSoundEffects';
-import {
-  formatBedtimeThoughtTimestamp,
-  isSupabaseConfigured,
-  listBedtimeThoughts,
-  submitBedtimeThought,
-} from '../utils/supabaseRest';
+
+const ENTRY_STORAGE_KEY = 'pip_observatory_bedtime_entries_v1';
+const VISIT_STORAGE_KEY = 'pip_observatory_local_visits';
+const STAMPS = ['⭐', '☁️', '🦄', '🎀'] as const;
+const MAX_ENTRIES = 50;
+
+function formatTimestamp(value: number, now = Date.now()): string {
+  if (!Number.isFinite(value)) return 'Just now';
+  const minutes = Math.max(0, Math.floor((now - value) / 60_000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function readEntries(): DreamEntry[] {
+  try {
+    const raw = localStorage.getItem(ENTRY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is DreamEntry =>
+      item && typeof item === 'object' &&
+      typeof item.id === 'string' && typeof item.name === 'string' &&
+      typeof item.message === 'string' && typeof item.stamp === 'string' &&
+      typeof item.timestamp === 'string' &&
+      item.name.length <= 40 && item.message.length <= 280 &&
+      STAMPS.includes(item.stamp as typeof STAMPS[number])
+    ).slice(0, MAX_ENTRIES);
+  } catch { return []; }
+}
 
 export const GuestbookSection: React.FC = () => {
   const { play } = useSoundEffects();
-  const VISIT_STORAGE_KEY = 'pip_observatory_local_visits';
-
-  // Shared entries come from Supabase instead of per-browser localStorage.
   const [entries, setEntries] = useState<DreamEntry[]>([]);
-  const [databaseStatus, setDatabaseStatus] = useState<'loading' | 'connected' | 'unconfigured' | 'error'>(
-    () => isSupabaseConfigured() ? 'loading' : 'unconfigured'
-  );
-  const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+  const [storageAvailable, setStorageAvailable] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [entriesLoadError, setEntriesLoadError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
-  const [selectedStamp, setSelectedStamp] = useState('⭐');
+  const [selectedStamp, setSelectedStamp] = useState<string>('⭐');
   const [formError, setFormError] = useState<string | null>(null);
   const [visitCount, setVisitCount] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = Number.parseInt(localStorage.getItem(VISIT_STORAGE_KEY) || '0', 10);
-        return Number.isFinite(saved) ? Math.max(0, saved) : 0;
-      } catch {}
-    }
-    return 0;
+    if (typeof window === 'undefined') return 0;
+    try {
+      const saved = Number.parseInt(localStorage.getItem(VISIT_STORAGE_KEY) || '0', 10);
+      return Number.isFinite(saved) ? Math.max(0, saved) : 0;
+    } catch { return 0; }
   });
   const visitCountedRef = useRef(false);
+  const submitLockRef = useRef(false);
+  const [justSubmittedId, setJustSubmittedId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Count each Observatory page visit once per mounted app, not guestbook submissions.
+    try {
+      setEntries(readEntries());
+      const probe = `${ENTRY_STORAGE_KEY}_probe`;
+      localStorage.setItem(probe, '1');
+      localStorage.removeItem(probe);
+      setStorageAvailable(true);
+    } catch { setStorageAvailable(false); }
+  }, []);
+
+  useEffect(() => {
     if (visitCountedRef.current || typeof window === 'undefined') return;
     visitCountedRef.current = true;
     try {
-      const next = Math.min(999999, visitCount + 1);
+      const saved = Number.parseInt(localStorage.getItem(VISIT_STORAGE_KEY) || '0', 10);
+      const next = Math.min(999999, (Number.isFinite(saved) ? saved : 0) + 1);
       localStorage.setItem(VISIT_STORAGE_KEY, String(next));
       setVisitCount(next);
     } catch {
       setVisitCount((current) => Math.min(999999, current + 1));
+      setStorageAvailable(false);
     }
   }, []);
-  const [justSubmittedId, setJustSubmittedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const stamps = [...STAMPS];
 
-    if (!isSupabaseConfigured()) {
-      setDatabaseStatus('unconfigured');
-      return () => { active = false; };
-    }
-
-    setIsLoadingEntries(true);
-    void listBedtimeThoughts(50)
-      .then((rows) => {
-        if (!active) return;
-        setEntries(rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          message: row.thought,
-          stamp: row.stamp,
-          timestamp: formatBedtimeThoughtTimestamp(row.created_at),
-        })));
-        setDatabaseStatus('connected');
-        setEntriesLoadError(null);
-      })
-      .catch(() => {
-        if (!active) return;
-        setDatabaseStatus('error');
-        setEntriesLoadError('The shared ledger could not be loaded. Please refresh and try again.');
-      })
-      .finally(() => {
-        if (active) setIsLoadingEntries(false);
-      });
-
-    return () => { active = false; };
-  }, []);
-
-  const stamps = ['⭐', '☁️', '🦄', '🎀'];
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validation = validateDreamInput(name, message);
+    if (submitLockRef.current) return;
+    const cleanName = name.trim();
+    const cleanMessage = message.trim();
+    const validation = validateDreamInput(cleanName, cleanMessage);
     if (!validation.isValid) {
       setFormError(validation.error || 'Please fill in both fields.');
       return;
     }
-    if (!isSupabaseConfigured()) {
-      setFormError('The shared bedtime journal is not connected yet. Please try again later.');
-      setDatabaseStatus('unconfigured');
+    if (!storageAvailable) {
+      setFormError('This browser blocks local storage, so Pip cannot save this entry here.');
       return;
     }
-    if (isSubmitting) return;
-
-    setFormError(null);
+    submitLockRef.current = true;
     setIsSubmitting(true);
-
+    setFormError(null);
     try {
-      const saved = await submitBedtimeThought({
-        name: name.trim(),
-        thought: message.trim(),
-        stamp: selectedStamp,
-      });
-      const newEntry: DreamEntry = {
-        id: saved.id,
-        name: saved.name,
-        message: saved.thought,
-        stamp: saved.stamp,
-        timestamp: formatBedtimeThoughtTimestamp(saved.created_at),
+      const now = Date.now();
+      const entry: DreamEntry = {
+        id: `dream-${now}-${Math.random().toString(36).slice(2, 9)}`,
+        name: cleanName.slice(0, 40),
+        message: cleanMessage.slice(0, 280),
+        stamp: STAMPS.includes(selectedStamp as typeof STAMPS[number]) ? selectedStamp : '⭐',
+        timestamp: formatTimestamp(now),
       };
-
-      setEntries((current) => [newEntry, ...current.filter((entry) => entry.id !== newEntry.id)].slice(0, 50));
-      setJustSubmittedId(newEntry.id);
+      const next = [entry, ...entries.filter((item) => item.id !== entry.id)].slice(0, MAX_ENTRIES);
+      localStorage.setItem(ENTRY_STORAGE_KEY, JSON.stringify(next));
+      setEntries(next);
+      setJustSubmittedId(entry.id);
       setName('');
       setMessage('');
-      setDatabaseStatus('connected');
-      setEntriesLoadError(null);
       play('guestbook-submit');
     } catch {
-      setFormError('Pip could not save your bedtime thought. Please check your connection and try again.');
+      setStorageAvailable(false);
+      setFormError('Pip could not save this entry because browser storage is unavailable or full.');
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -230,14 +222,9 @@ export const GuestbookSection: React.FC = () => {
                 </div>
               </div>
 
-              {databaseStatus === 'unconfigured' && (
+              {!storageAvailable && (
                 <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-amber-900 font-semibold text-xs">
-                  The shared journal is being connected. You can leave a thought once it is ready.
-                </p>
-              )}
-              {databaseStatus === 'loading' && (
-                <p role="status" className="text-warm-brown/70 dark:text-cream/70 text-xs">
-                  Connecting to Pip’s shared dream journal…
+                  This browser does not allow local storage. Entries cannot be saved on this device.
                 </p>
               )}
               {formError && (
@@ -248,7 +235,7 @@ export const GuestbookSection: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={!isSupabaseConfigured() || isSubmitting}
+                disabled={!storageAvailable || isSubmitting}
                 className="w-full py-3.5 rounded-2xl bg-rich-berry hover:bg-rich-berry/90 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-md"
               >
                 <span>{isSubmitting ? 'Saving your thought…' : "Pin into Pip's Dream Journal"}</span>
@@ -263,32 +250,18 @@ export const GuestbookSection: React.FC = () => {
               <span className="font-bold tracking-wider uppercase">
                 Recent Observatory Entries
               </span>
-              <span className="text-rich-berry dark:text-star-gold font-medium">
-                {databaseStatus === 'connected'
-                  ? 'Shared with every visitor · saved in Supabase 🛰️'
-                  : databaseStatus === 'loading'
-                    ? 'Connecting to the shared ledger…'
-                    : 'Shared ledger connection required 🛰️'}
+              <span className="text-rich-berry dark:text-star-gold font-medium text-right">
+                Stored only in this browser · not shared with other visitors
               </span>
             </div>
 
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {entriesLoadError && (
-                <p role="status" className="rounded-xl bg-soft-blush/40 px-4 py-3 text-center text-sm text-rich-berry dark:text-star-gold">
-                  {entriesLoadError}
-                </p>
-              )}
+
               {entries.length === 0 ? (
                 <div className="p-8 rounded-2xl bg-white/60 dark:bg-plum/60 border border-dashed border-rich-berry/20 text-center">
                   <span className="text-3xl block mb-2">📜</span>
                   <p className="font-bubbly text-sm text-warm-brown/70 dark:text-cream/70">
-                    {isLoadingEntries
-                      ? 'Opening the shared starlight ledger…'
-                      : databaseStatus === 'unconfigured'
-                        ? 'The shared ledger is not connected yet.'
-                        : entriesLoadError
-                          ? 'The shared ledger could not be reached just now.'
-                          : 'The ledger is waiting for its first starlight whisper tonight.'}
+                    {storageAvailable ? 'The ledger is waiting for its first starlight whisper tonight.' : 'Browser storage is unavailable on this device.'}
                   </p>
                 </div>
               ) : (

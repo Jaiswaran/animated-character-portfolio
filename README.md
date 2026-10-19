@@ -49,20 +49,11 @@ bun run build
 - Repeat with interface sound effects muted and with `prefers-reduced-motion: reduce` enabled.
 - Use the GitHub Actions Lighthouse report to inspect measured performance, accessibility, best-practices, and SEO scores. Treat 95+ as a target, not a guaranteed score.
 
-## Supabase bedtime guestbook
+## Local-only bedtime guestbook
 
-Bedtime thoughts are stored in `public.bedtime_thoughts` and shared between visitors. The database migration is `supabase/migrations/20261018180000_create_bedtime_thoughts.sql`. It enables Row Level Security (RLS), lets visitors read and submit valid entries, and denies anonymous edits/deletes. The form validates names (1–40 characters) and thoughts (1–280 characters) both in the UI and at the database policy/constraint layer.
+Bedtime thoughts are saved in this browser's `localStorage`. They remain on this device and browser profile; they are not uploaded or shared with other visitors. The local visit odometer is also browser-local and does not represent global or unique-visitor analytics. If browser storage is disabled or full, the guestbook explains that saving is unavailable.
 
-The frontend has browser-safe defaults for the dedicated `pip-bedtime-thoughts` project, so the guestbook can connect on deployment without a manual Vercel variable step. These are public values, not secrets. You can override them with Vite environment variables for local testing or key rotation:
-
-- `VITE_SUPABASE_URL` — project API URL.
-- `VITE_SUPABASE_PUBLISHABLE_KEY` — the project's public `sb_publishable_...` key.
-
-Only use the publishable key in browser code. Never use a Supabase secret or `service_role` key in a `VITE_` variable.
-
-For another Supabase project, run the SQL in `supabase/migrations/20261018180000_create_bedtime_thoughts.sql` using the SQL Editor or your migrations workflow, then override the two `VITE_SUPABASE_*` variables in the hosting environment and redeploy. Never place a secret/service-role key in frontend code or a `VITE_` variable.
-
-The mechanical odometer is still local to each browser; it is not server-wide or unique-visitor analytics.
+No database, hosted backend, API key, or environment-variable setup is required.
 
 ## Suggested interaction smoke test
 

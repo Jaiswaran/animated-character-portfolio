@@ -446,14 +446,21 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       const atStart = delta < 0 && base <= 0.001;
       const atEnd = delta > 0 && base >= 0.999;
 
-      // Let regular page/modal scrolling continue at either end of the journey.
-      if (atStart || atEnd) return;
+      // Release route ownership at the boundaries so page/modal scrolling and its
+      // progress synchronizer can resume immediately.
+      if (atStart || atEnd) {
+        wheelControlledRef.current = false;
+        return;
+      }
 
       // While over the actual rooftop map, use the wheel to advance the route
       // rather than scrolling the document/dialog at the same time.
+      if (isDispatchingRef.current || manualModeRef.current) {
+        wheelControlledRef.current = false;
+        return;
+      }
       event.preventDefault();
       wheelControlledRef.current = true;
-      if (isDispatchingRef.current || manualModeRef.current) return;
 
       const clampedDelta = Math.max(-220, Math.min(220, delta));
       targetScrollProgressRef.current = Math.min(
@@ -485,12 +492,18 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       const base = Math.min(1, Math.max(0, targetScrollProgressRef.current));
       const atStart = delta < 0 && base <= 0.001;
       const atEnd = delta > 0 && base >= 0.999;
-      if (atStart || atEnd) return;
+      if (atStart || atEnd) {
+        wheelControlledRef.current = false;
+        return;
+      }
 
       // A non-passive listener lets a swipe over the map drive Pip, not the page.
+      if (isDispatchingRef.current || manualModeRef.current) {
+        wheelControlledRef.current = false;
+        return;
+      }
       event.preventDefault();
       wheelControlledRef.current = true;
-      if (isDispatchingRef.current || manualModeRef.current) return;
 
       const clampedDelta = Math.max(-110, Math.min(110, delta));
       targetScrollProgressRef.current = Math.min(
@@ -502,9 +515,24 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
       }
     };
 
-    const onRouteTouchEnd = () => { lastTouchY = null; };
+    const onRouteTouchEnd = () => {
+      lastTouchY = null;
+      // A touch gesture is over; subsequent document scrolling must be allowed
+      // to synchronize the route again instead of remaining permanently locked.
+      wheelControlledRef.current = false;
+    };
+
+    const onRoutePointerLeave = () => {
+      wheelControlledRef.current = false;
+      if (isDispatchingRef.current || manualModeRef.current) return;
+      targetScrollProgressRef.current = measureTargetScrollProgress();
+      if (scrollRafRef.current === null) {
+        scrollRafRef.current = requestAnimationFrame(stepSmoothScroll);
+      }
+    };
 
     routeCanvas?.addEventListener('wheel', onRouteWheel, { passive: false });
+    routeCanvas?.addEventListener('pointerleave', onRoutePointerLeave, { passive: true });
     routeCanvas?.addEventListener('touchstart', onRouteTouchStart, { passive: true });
     routeCanvas?.addEventListener('touchmove', onRouteTouchMove, { passive: false });
     routeCanvas?.addEventListener('touchend', onRouteTouchEnd, { passive: true });
@@ -516,6 +544,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
     return () => {
       observer?.disconnect();
       routeCanvas?.removeEventListener('wheel', onRouteWheel);
+      routeCanvas?.removeEventListener('pointerleave', onRoutePointerLeave);
       routeCanvas?.removeEventListener('touchstart', onRouteTouchStart);
       routeCanvas?.removeEventListener('touchmove', onRouteTouchMove);
       routeCanvas?.removeEventListener('touchend', onRouteTouchEnd);
@@ -807,7 +836,7 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
                     ? 'bg-amber-300 text-warm-brown opacity-85 cursor-wait'
                     : 'bg-star-gold hover:bg-amber-300 text-warm-brown hover:scale-105 active:scale-95'
                 }`}
-                aria-label="Dispatch dream to next rooftop"
+                aria-label="Send Next Dream — dispatch dream to next rooftop"
               >
                 <Send className="w-4 h-4" aria-hidden="true" />
                 <span>
@@ -1025,7 +1054,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 1: Whispering Gable */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(0)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(0);
+                  }
+                }}
                 aria-label="Fly to Whispering Gable"
               >
                 <polygon points="60,450 60,370 130,310 200,370 200,450" fill="#2d203f" />
@@ -1053,7 +1090,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 2: Copper Clocktower */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(1)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(1);
+                  }
+                }}
                 aria-label="Fly to Copper Clocktower"
               >
                 <rect x="285" y="240" width="70" height="210" fill="#261b36" />
@@ -1076,7 +1121,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 3: Beacon Point Lighthouse */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(2)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(2);
+                  }
+                }}
                 aria-label="Fly to Beacon Point"
               >
                 <polygon points="465,450 472,210 508,210 515,450" fill="#2d2242" />
@@ -1106,7 +1159,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 4: Cloud Nine Spire */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(3)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(3);
+                  }
+                }}
                 aria-label="Fly to Cloud Nine Spire"
               >
                 <polygon points="620,450 635,270 665,270 680,450" fill="#231735" />
@@ -1127,7 +1188,15 @@ export const DreamDeliverySection: React.FC<DreamDeliverySectionProps> = ({
               {/* House 5: Harbor Tugboat */}
               <g
                 className="cursor-pointer group"
+                role="button"
+                tabIndex={0}
                 onClick={() => flyToStation(4)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    flyToStation(4);
+                  }
+                }}
                 aria-label="Fly to Harbor Tugboat"
               >
                 <path
