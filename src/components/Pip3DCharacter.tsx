@@ -41,24 +41,19 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
   const [sceneReady, setSceneReady] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
 
-  // Keep the lightweight portrait for first paint, then initialize Three.js after a
-  // short delay. Do not allocate and immediately destroy a probe WebGL context: mobile
-  // browsers enforce strict GPU-context limits, and that probe can starve the real renderer.
-  // Hover, click, or keyboard focus can request the scene immediately.
+  // Keep the lightweight portrait for first paint. Load Three.js on the first genuine
+  // user interaction so mobile startup stays fast, then keep the 2D portrait as the fallback.
+  // Do not create and destroy a probe WebGL context: mobile browsers limit GPU contexts,
+  // and that probe can starve the real renderer before the 3D scene starts.
   useEffect(() => {
     if (Scene || sceneFailed) return;
 
     let cancelled = false;
     let loading = false;
-    let idleTimer: number | null = null;
 
     const loadScene = () => {
       if (cancelled || loading || Scene || sceneFailed) return;
       loading = true;
-      if (idleTimer !== null) {
-        window.clearTimeout(idleTimer);
-        idleTimer = null;
-      }
 
       // Let the actual renderer decide whether WebGL is supported. Its initialization
       // reports failures without replacing or hiding the preloaded portrait.
@@ -74,20 +69,24 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
     const stage = stageRef.current;
     if (!stage) return;
 
-    stage.addEventListener('pointerenter', loadScene, { passive: true });
-    stage.addEventListener('click', loadScene, { passive: true });
-    stage.addEventListener('focusin', loadScene, { passive: true });
+    stage.addEventListener('pointerenter', loadScene, { passive: true, once: true });
+    stage.addEventListener('click', loadScene, { passive: true, once: true });
+    stage.addEventListener('focusin', loadScene, { passive: true, once: true });
 
-    // Ensure 3D becomes available even if the visitor never hovers or taps the avatar.
-    // The delay lets the already-preloaded artwork paint first and retains code splitting.
-    idleTimer = window.setTimeout(loadScene, 1400);
+    // A mouse moving elsewhere or a keyboard/touch interaction should also wake Pip;
+    // Lighthouse's no-interaction page-load audit does not pull in the expensive 3D chunk.
+    window.addEventListener('pointermove', loadScene, { passive: true, once: true });
+    window.addEventListener('pointerdown', loadScene, { passive: true, once: true });
+    window.addEventListener('keydown', loadScene, { passive: true, once: true });
 
     return () => {
       cancelled = true;
-      if (idleTimer !== null) window.clearTimeout(idleTimer);
       stage.removeEventListener('pointerenter', loadScene);
       stage.removeEventListener('click', loadScene);
       stage.removeEventListener('focusin', loadScene);
+      window.removeEventListener('pointermove', loadScene);
+      window.removeEventListener('pointerdown', loadScene);
+      window.removeEventListener('keydown', loadScene);
     };
   }, [Scene, sceneFailed]);
 
