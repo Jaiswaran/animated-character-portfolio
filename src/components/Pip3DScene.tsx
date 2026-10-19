@@ -470,15 +470,25 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        // Avoid the extra multisample buffer on dense mobile displays.
+        antialias: (window.devicePixelRatio || 1) <= 1.5,
         alpha: true,
-        preserveDrawingBuffer: true,
-        powerPreference: 'high-performance',
+        // Animation never needs a preserved drawing buffer; this saves GPU memory.
+        preserveDrawingBuffer: false,
+        powerPreference: window.matchMedia('(max-width: 700px)').matches ? 'low-power' : 'high-performance',
       });
     } catch {
       onErrorRef.current?.();
       return;
     }
+
+    let shaderCompilationFailed = false;
+    let shaderFailureReported = false;
+    // A shader-link failure can leave a blank WebGL canvas without throwing. Keep the
+    // 2D portrait as the visible fallback instead of cross-fading to an empty canvas.
+    renderer.debug.onShaderError = () => {
+      shaderCompilationFailed = true;
+    };
 
     const isHeadless =
       typeof navigator !== 'undefined' &&
@@ -542,6 +552,13 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
 
     const drawFrame = () => {
       renderer.render(scene, camera);
+      if (shaderCompilationFailed) {
+        if (!shaderFailureReported) {
+          shaderFailureReported = true;
+          onErrorRef.current?.();
+        }
+        return;
+      }
       if (!firstFrameDrawn) {
         firstFrameDrawn = true;
         onReadyRef.current?.();
@@ -606,6 +623,7 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
     img.onload = () => {
       if (cancelled) return;
 
+      try {
       let processed: ProcessedPortrait;
       try {
         processed = processPortraitImage(img);
@@ -831,6 +849,10 @@ export const Pip3DScene: React.FC<Pip3DSceneProps> = ({ motionAllowed, isWaving,
       updateDeformation(0);
       drawFrame();
       syncRunning();
+      } catch {
+        // If canvas/image/shader setup fails, let the parent retain the portrait fallback.
+        if (!cancelled) onErrorRef.current?.();
+      }
     };
 
     img.onerror = () => {
