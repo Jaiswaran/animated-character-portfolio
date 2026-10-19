@@ -12,7 +12,6 @@ import {
   Check,
   Moon,
   Play,
-  RotateCw,
   Sparkles,
   Sun,
   Volume2,
@@ -55,7 +54,7 @@ const PROJECTS: ProjectCase[] = [
     tagline: 'Make the dark feel kind.',
     description: 'A mood-responsive dream lantern with living colour, a softer night scene, and a real music-box soundscape.',
     challenge: 'Bedtime should feel safe, personal, and gently magical—not like switching off a room.',
-    solution: 'Change the lantern’s colour and ambience, then tune a soft synthesized lullaby with a wind-up key.',
+    solution: 'Change the lantern’s colour and ambience, then choose and play a soft synthesized lullaby.',
     capabilities: ['4 reactive light moods', 'Day / night scenes', 'Live Web Audio music box'],
     accent: '#d9c8ef',
     action: 'Enter the sanctuary',
@@ -415,7 +414,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
             Tiny inventions.<br /><span>Huge dreams.</span>
           </h2>
           <p className="ultimate-showcase-subtitle">
-            Click any invention to step inside in full screen. Stack towers, dispatch midnight dreams, and wind the lullaby engine.
+            Click any invention to step inside in full screen. Stack towers, dispatch midnight dreams, and play soft lullabies.
           </p>
         </header>
 
@@ -732,16 +731,7 @@ export const ProjectShowcaseSection: React.FC<ProjectShowcaseSectionProps> = ({
                           >
                             {isLullabyAudible ? 'Pause Lullaby' : <><Play className="h-4 w-4 fill-current" /> Play Lullaby</>}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              play('wind-key');
-                              lullaby.windUp(25);
-                            }}
-                            className="py-2.5 px-3 rounded-xl border border-rich-berry/20 bg-cream dark:bg-plum-dark text-plum dark:text-cream font-bubbly font-bold text-xs flex items-center gap-1.5"
-                          >
-                            <RotateCw className="h-4 w-4" /> Wind +25%
-                          </button>
+
                         </div>
                       </div>
                     </div>
