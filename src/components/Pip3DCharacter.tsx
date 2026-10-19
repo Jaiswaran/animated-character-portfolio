@@ -135,9 +135,11 @@ export const Pip3DCharacter: React.FC<Pip3DCharacterProps> = ({ motionAllowed, i
           className="pip-realistic-art"
           src="/assets/pip_avatar_cloud.png"
           alt=""
+          width={421}
+          height={512}
           draggable={false}
           fetchPriority="high"
-          decoding="async"
+          decoding="sync"
           onError={() => setImageFailed(true)}
         />
       ) : (
